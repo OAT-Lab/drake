@@ -940,8 +940,8 @@ void MultibodyTree<T>::SetBaseBodyJointType(
 }
 
 template <typename T>
-void MultibodyTree<T>::SetCombineWeldedBodies(
-    bool combine, std::optional<ModelInstanceIndex> model_instance) {
+void MultibodyTree<T>::SetFuseWeldedLinks(
+    bool fuse, std::optional<ModelInstanceIndex> model_instance) {
   DRAKE_THROW_UNLESS(!is_finalized());
   LinkJointGraph& graph = mutable_graph();
 
@@ -953,11 +953,11 @@ void MultibodyTree<T>::SetCombineWeldedBodies(
           : graph.get_global_forest_building_options();
 
   // Clear the existing setting. This leaves us with the default which is _not_
-  // to combine welded bodies.
-  options = options & ~ForestBuildingOptions::kOptimizeWeldedLinksAssemblies;
+  // to fuse welded bodies.
+  options = options & ~ForestBuildingOptions::kFuseWeldedLinksAssemblies;
 
-  if (combine) {
-    options = options | ForestBuildingOptions::kOptimizeWeldedLinksAssemblies;
+  if (fuse) {
+    options = options | ForestBuildingOptions::kFuseWeldedLinksAssemblies;
   }
 
   if (model_instance.has_value()) {
@@ -982,15 +982,15 @@ BaseBodyJointType MultibodyTree<T>::GetBaseBodyJointType(
 }
 
 template <typename T>
-bool MultibodyTree<T>::GetCombineWeldedBodies(
+bool MultibodyTree<T>::GetFuseWeldedLinks(
     std::optional<ModelInstanceIndex> model_instance) const {
   const ForestBuildingOptions options =
       model_instance.has_value()
           ? graph().get_forest_building_options_in_use(*model_instance)
           : graph().get_global_forest_building_options();
 
-  return static_cast<bool>(
-      options & ForestBuildingOptions::kOptimizeWeldedLinksAssemblies);
+  return static_cast<bool>(options &
+                           ForestBuildingOptions::kFuseWeldedLinksAssemblies);
 }
 
 template <typename T>
@@ -1631,7 +1631,7 @@ void MultibodyTree<T>::CalcFrameBodyPoses(
   }
 
   // Pass 2 (over all mobods): find the pose X_BL of each Link frame L on its
-  // Mobod B. This is normally identity except if B is a composite mobod and
+  // Mobod B. This is normally identity except if B is a fused mobod and
   // Link L is not its "active" (most inboard) link.
   std::vector<uint8_t> got_X_BL(num_links(), false);
   for (const SpanningForest::Mobod& mobod : forest().mobods()) {
@@ -1640,7 +1640,7 @@ void MultibodyTree<T>::CalcFrameBodyPoses(
     frame_body_poses->SetX_BL(active_link_ordinal,
                               RigidTransform<T>::Identity());
     got_X_BL[active_link_ordinal] = true;
-    if (!mobod.is_composite()) continue;
+    if (!mobod.is_fused()) continue;
 
     // Continue with the "follower" links in mobod B, which should be in
     // inboard ⇒ outboard order (starting after the "active" link that we just
@@ -2582,9 +2582,9 @@ SpatialInertia<T> MultibodyTree<T>::CalcSpatialInertia(
 
     // Get the current body B's spatial inertia about Bo (body B's origin),
     // expressed in the world frame W. Start the calculation with a cached value
-    // for M_BBo_W if B is not a composite body (i.e., it is a one-link Mobod).
+    // for M_BBo_W if B is not a fused body (i.e., it is a one-link Mobod).
     const MobodIndex mobod_index = get_link(body_index).mobod_index();
-    if (!get_mobod(mobod_index).is_composite()) {
+    if (!get_mobod(mobod_index).is_fused()) {
       const SpatialInertia<T>& M_BBo_W = M_Bi_W[mobod_index];
 
       // Shift M_BBo_W from about-point Bo to about-point Wo and add to the sum.
@@ -2843,16 +2843,31 @@ Vector3<T> MultibodyTree<T>::CalcCenterOfMassTranslationalAccelerationInWorld(
 template <typename T>
 SpatialMomentum<T> MultibodyTree<T>::CalcSpatialMomentumInWorldAboutPoint(
     const systems::Context<T>& context, const Vector3<T>& p_WoP_W) const {
-  // Assemble a list of ModelInstanceIndex.
-  // Skip model_instance_index(0) which always contains the "world" body. The
-  // spatial momentum of the world body measured in the world is always zero.
-  std::vector<ModelInstanceIndex> model_instances;
-  for (ModelInstanceIndex model_instance_index(1);
-       model_instance_index < num_model_instances(); ++model_instance_index)
-    model_instances.push_back(model_instance_index);
+  // Efficiently evaluate all mobods' spatial inertias, poses, and velocities.
+  const std::vector<SpatialInertia<T>>& M_Bi_W =
+      EvalSpatialInertiaInWorldCache(context);
+  const PositionKinematicsCache<T>& pc = EvalPositionKinematics(context);
+  const VelocityKinematicsCache<T>& vc = EvalVelocityKinematics(context);
 
-  return CalcSpatialMomentumInWorldAboutPoint(context, model_instances,
-                                              p_WoP_W);
+  // Form L_WSWo_W, the system S's spatial momentum in world W about Wo (world
+  // origin) expressed in W by doing a sum over all mobods in S.
+  SpatialMomentum<T> L_WSWo_W = SpatialMomentum<T>::Zero();
+  for (const SpanningForest::Mobod& mobod : forest().mobods()) {
+    if (mobod.is_world()) continue;  // No contribution from the world.
+
+    // Form each mobod B's spatial momentum in W about Bo, expressed in W, then
+    // shift L_WBBo_W from "about Bo" to "about Wo" and accumulate the sum.
+    const MobodIndex mobod_index = mobod.index();
+    const SpatialInertia<T>& M_BBo_W = M_Bi_W[mobod_index];
+    const SpatialVelocity<T>& V_WBo_W = vc.get_V_WB(mobod_index);
+    const RigidTransform<T>& X_WB = pc.get_X_WB(mobod_index);
+    const Vector3<T>& p_WoBo_W = X_WB.translation();
+    const SpatialMomentum<T> L_WBWo_W = (M_BBo_W * V_WBo_W).Shift(-p_WoBo_W);
+    L_WSWo_W += L_WBWo_W;
+  }
+
+  // Shift system S's spatial momentum from "about Wo" to "about point P".
+  return L_WSWo_W.Shift(p_WoP_W);  // returns L_WSP_W.
 }
 
 template <typename T>
@@ -2888,16 +2903,14 @@ template <typename T>
 SpatialMomentum<T> MultibodyTree<T>::CalcBodiesSpatialMomentumInWorldAboutWo(
     const systems::Context<T>& context,
     const std::vector<LinkIndex>& link_indexes) const {
-  // For efficiency, evaluate all bodies' spatial inertia, velocities, and
-  // pose.
+  // Efficiently evaluate all mobods' spatial inertias, poses, and velocities.
   const std::vector<SpatialInertia<T>>& M_Bi_W =
       EvalSpatialInertiaInWorldCache(context);
   const PositionKinematicsCache<T>& pc = EvalPositionKinematics(context);
   const VelocityKinematicsCache<T>& vc = EvalVelocityKinematics(context);
 
-  // Accumulate each body's spatial momentum in the world frame W to this
-  // system S's spatial momentum in W about Wo (the origin of W), expressed in
-  // W.
+  // Accumulate each body's spatial momentum in world W to this system S's
+  // spatial momentum in W about Wo (the origin of W), expressed in W.
   SpatialMomentum<T> L_WS_W = SpatialMomentum<T>::Zero();
 
   // Add contributions from each link Bi.
