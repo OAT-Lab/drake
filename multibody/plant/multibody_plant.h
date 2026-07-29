@@ -38,6 +38,7 @@
 #include "drake/multibody/tree/rigid_body.h"
 #include "drake/multibody/tree/uniform_gravity_field_element.h"
 #include "drake/multibody/tree/weld_joint.h"
+#include "drake/systems/framework/bus_value.h"
 #include "drake/systems/framework/diagram_builder.h"
 #include "drake/systems/framework/leaf_system.h"
 
@@ -128,6 +129,11 @@ class MultibodyPlantIcfAttorney;
 // Forward declarations for multibody_plant_model_attorney.h.
 template <typename>
 class MultibodyPlantModelAttorney;
+
+struct SurfaceVelocityEntry {
+  std::string scoped_name;  // Empty until Finalize() is called.
+  Eigen::Vector3d axis;     // unit-length, expressed in link frame L.
+};
 
 }  // namespace internal
 
@@ -269,6 +275,7 @@ input_ports:
 - <em style="color:gray">model_instance_name[i]</em>_actuation
 - <em style="color:gray">model_instance_name[i]</em>_desired_state
 - <span style="color:green">geometry_query</span>
+- surface_speeds
 output_ports:
 - state
 - body_poses
@@ -284,6 +291,7 @@ output_ports:
 - <em style="color:gray">model_instance_name[i]</em>_net_actuation
 - <span style="color:green">geometry_pose</span>
 - <span style="color:green">deformable_body_configuration</span>
+- surface_displacements
 @endsystem
 
 The ports whose names begin with <em style="color:gray">
@@ -1193,6 +1201,24 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
   /// connection with a SceneGraph.
   const systems::InputPort<T>& get_geometry_query_input_port() const;
 
+  /// Returns a constant reference to the `"surface_speeds"` input port, which
+  /// carries a systems::BusValue whose signals set the surface speed for each
+  /// body registered via SetSurfaceVelocityAxis(). Each signal's name is the
+  /// body's (link's) scoped name (i.e., RigidBody::scoped_name()) and its value
+  /// is a finite `double` speed in m/s. If the port is not connected, or a
+  /// body's (link's) signal is absent, that body's speed is treated as zero.
+  /// @pre Finalize() was already called on `this` plant.
+  const systems::InputPort<T>& get_surface_speeds_input_port() const;
+
+  /// Returns a constant reference to the `"surface_displacements"` output port,
+  /// which carries a systems::BusValue whose signals report the cumulative
+  /// surface displacement (in meters) for each body registered via
+  /// SetSurfaceVelocityAxis(). Each signal's name is the body's scoped name
+  /// (i.e., RigidBody::scoped_name()). The displacement is initialized to zero
+  /// and integrated from the `"surface_speeds"` input port.
+  /// @pre Finalize() was already called on `this` plant.
+  const systems::OutputPort<T>& get_surface_displacements_output_port() const;
+
   /// Reports the multibody state x = [q, v] of the model as a @ref
   /// systems::BasicVector<T> "vector-valued" output port of size
   /// num_multibody_states().
@@ -1759,38 +1785,43 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
   /// @param[in] model_instance (optional) the index of the model instance to
   ///   which `joint_type` is to be applied.
   /// @throws std::exception if called after Finalize().
-  /// @see GetBaseBodyJointType(), SetCombineWeldedBodies(), Finalize()
+  /// @see GetBaseBodyJointType(), SetFuseWeldedLinks(), Finalize()
   void SetBaseBodyJointType(
       BaseBodyJointType joint_type,
       std::optional<ModelInstanceIndex> model_instance = {});
 
-  /// (Internal use only for now) Controls whether welded-together RigidBody
-  /// (Link) elements are to be combined into a single composite mobilized
-  /// body in the generated model. If so, those Weld joints will not be modeled
-  /// (i.e. will have no corresponding mobilizer) in the post-Finalize()
-  /// model and there will be fewer mobilized bodies and modeled joints in the
-  /// generated model than in the user's specification of links and joints.
-  /// Results for the original RigidBody (Link) elements can still be obtained
-  /// by name or BodyIndex, but no results (in particular, no reaction forces)
-  /// are available for the unmodeled Weld joints.
+  /// (Internal use only for now) Controls whether Link (RigidBody) elements
+  /// that are welded to each other are to be fused onto a single mobilized body
+  /// (a "fused mobod") in the generated model. If so, those weld joints will
+  /// not be modeled (i.e. will have no corresponding mobilizer) in the
+  /// post-Finalize() model; there will be fewer mobilized bodies and modeled
+  /// joints in the generated model than in the user's specification of links
+  /// and joints. Regardless of whether `fuse` is true or false, results for
+  /// calculations (e.g., positions & velocities) involving individual links can
+  /// still be obtained by name or LinkIndex (BodyIndex). However, no results
+  /// (e.g., no reaction forces) are available for fused weld joints on a mobod.
   ///
-  /// You can set this flag globally or on a per-model instance basis. If
-  /// there is a setting for a joint's model instance then that setting is
-  /// used; otherwise, the global setting is used.
+  /// The `fuse` flag can be set globally or on a per-model instance basis.
+  /// If SetFuseWeldedLinks() is called with a model instance then that
+  /// setting is used for elements in that model instance; otherwise, the
+  /// global setting is used.
+  ///
+  /// You will be able to override this setting for individual weld joints,
+  /// for example to model a force/torque sensor (not available yet).
   ///
   /// The default global setting for Drake is _not_ to combine welded RigidBody
   /// elements.
   ///
-  /// @param[in] combine Whether to combine welded-together bodies. This only
+  /// @param[in] fuse Whether to fuse welded-together bodies. This only
   ///   affects a particular model instance if the `model_instance` argument is
   ///   also provided, otherwise it sets the global value.
   /// @param[in] model_instance (optional) if present, specifies a particular
-  ///   model instance to which the `combine` argument applies.
+  ///   model instance to which the `fuse` argument applies.
   ///
   /// @throws std::exception if called after Finalize().
-  /// @see GetCombineWeldedBodies(), SetBaseBodyJointType(), Finalize()
-  void SetCombineWeldedBodies(
-      bool combine, std::optional<ModelInstanceIndex> model_instance = {});
+  /// @see GetFuseWeldedLinks(), SetBaseBodyJointType(), Finalize()
+  void SetFuseWeldedLinks(
+      bool fuse, std::optional<ModelInstanceIndex> model_instance = {});
 
   /// Returns the currently-set choice for base body joint type, either for
   /// the global setting or for a specific model instance if provided.
@@ -1800,20 +1831,20 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
   /// This can be called any time -- pre-finalize it returns the joint type
   /// that will be used by Finalize(); post-finalize it returns the joint type
   /// that _was_ used if there were any base bodies in need of a joint.
-  /// @see SetBaseBodyJointType(), GetCombineWeldedBodies(), Finalize()
+  /// @see SetBaseBodyJointType(), GetFuseWeldedLinks(), Finalize()
   BaseBodyJointType GetBaseBodyJointType(
       std::optional<ModelInstanceIndex> model_instance = {}) const;
 
   /// (Internal use only for now) Returns the global or a model_instance setting
-  /// for whether or not to combine welded RigidBody (Link) elements.
+  /// for whether or not to fuse welded Link (RigidBody) elements.
   ///
   /// @note This function can be called pre-Finalize() or post-Finalize().
   ///
   /// @param[in] model_instance (optional). If this argument is missing or
   ///   not recognized, returns the global setting. Otherwise returns the
   ///   setting for this specific model_instance.
-  /// @see SetCombineWeldedBodies(), GetBaseBodyJointType(), Finalize()
-  bool GetCombineWeldedBodies(
+  /// @see SetFuseWeldedLinks(), GetBaseBodyJointType(), Finalize()
+  bool GetFuseWeldedLinks(
       std::optional<ModelInstanceIndex> model_instance = {}) const;
 
   /// This method must be called after all elements in the model (joints,
@@ -2058,8 +2089,8 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
   ///
   /// @throws std::exception if bodies A and B are the same body.
   /// @throws std::exception if `distance` is not strictly positive.
-  /// @throws std::exception if `stiffness` is not positive or zero.
-  /// @throws std::exception if `damping` is not positive or zero.
+  /// @throws std::exception if `stiffness` is not strictly positive.
+  /// @throws std::exception if `damping` is not positive nor zero.
   /// @throws std::exception if the %MultibodyPlant has already been finalized.
   /// @throws std::exception if `this` %MultibodyPlant's underlying contact
   /// solver is not SAP. (i.e. get_discrete_contact_solver() !=
@@ -2241,6 +2272,106 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
 
   /// <!-- TODO(#18732): Add getters to interrogate existing constraints.
   /// -->
+
+  /// @}
+
+  /// @anchor mbp_surface_velocity
+  /// @name               Surface velocity
+  ///
+  /// @warning Surface velocity is a work in progress. There are no guarantees
+  ///          on its effect until the implementation is complete.
+  ///
+  /// Surface velocity models bodies (links) whose surfaces move relative to
+  /// the body itself — conveyor belts, spinning drums, tank treads, or any
+  /// mechanism where internal motion produces a tangential velocity at contact
+  /// surfaces.
+  ///
+  /// #### Mathematical model
+  ///
+  /// Each registered body defines a velocity field over its contact surface
+  /// (the total surface of *all* proximity geometries affixed to the body).
+  /// At a contact point C, given:
+  ///
+  ///  - â_ss_B — the *rotation axis*, stored in body frame B (see
+  ///    SetSurfaceVelocityAxis()),
+  ///  - `speed` — the *signed* scalar measure of the surface velocity from the
+  ///    `"surface_speeds"` input port (see get_surface_speeds_input_port()),
+  ///  - n̂_C_B — the contact normal at C oriented to point *out* of the body's
+  ///    proximity geometry (likewise expressed in body frame B),
+  ///
+  /// the surface velocity expressed in the body frame B is:
+  ///
+  ///     v_ss_B = speed · (â_ss_B × n̂_C_B)
+  ///
+  /// The formula is the velocity produced at a contact point by a rigid drum
+  /// rotating about axis â_ss_B at peripheral speed `speed`. For example, a
+  /// horizontal conveyor belt whose top face (n̂_C_B ≈ ẑ_B) moves in the
+  /// x̄_B direction: set â_ss_B = ŷ_B, yielding
+  /// v_ss_B = speed · (ŷ × ẑ) = speed · x̂.
+  ///
+  /// Although â_ss_B and n̂_C_B are both unit vectors, their cross product is
+  /// not necessarily unit length. We use that length to further scale the
+  /// resultant `speed`. This gives us the effect of reducing the surface
+  /// velocity as the contact normal aligns with the axis of rotation.
+  ///
+  /// #### Key properties and ramifications
+  ///
+  ///  - **Signed speed.** The input "speed" value can be positive or negative.
+  ///    It still "rotates" around the same axis, but reversing the sign
+  ///    reverses the surface velocity direction.
+  ///  - **Axis follows the body.** â_ss_B is stored in the body frame B, so
+  ///    the velocity field automatically rotates with the body in the world.
+  ///  - **Velocity direction depends on the contact normal.** Two contact
+  ///    points on the same body but at different surface orientations may
+  ///    experience different surface velocity directions.
+  ///  - **Zero velocity along the rotation axis.** When n̂_C_B is parallel to
+  ///    â_ss_B the cross product is zero and the surface velocity vanishes,
+  ///    which is physically correct (no tangential slip along the axis).
+  ///  - **Speed is runtime-controlled.** `speed` is read from the
+  ///    `"surface_speeds"` bus port on every time step. An unconnected port or
+  ///    a missing signal for this body is treated as zero speed. Negative speed
+  ///    reverses the velocity direction.
+  ///  - **Only the direction of â_ss_B matters.** The stored vector is always
+  ///    unit-length; magnitude is discarded upon registration or update.
+  ///  - **No change to the underlying multibody dynamics.** Surface velocity is
+  ///    a *contact* effect that modifies the contact velocity at the point of
+  ///    contact. The only effect it has is in computing contact forces. It
+  ///    plays *no* role in any other MultibodyPlant calculations.
+  ///  - **The body's surface velocity is applied to *all* geometries affixed
+  ///    to the body**, regardless of the geometry's shape or pose on the body.
+  ///    If you need a body composed of multiple parts with different surface
+  ///    velocities, you must model them as separate bodies with separate
+  ///    surface velocity registrations, but they can be connected by weld
+  ///    joints to function as a single rigid body.
+  ///  - **Surface displacement always initializes to zero**. This state is
+  ///    just a visualization affordance; there is no value in setting it to a
+  ///    non-zero value (even in the context of state randomization).
+  /// @{
+
+  /// Sets the surface-velocity axis for `body` to `axis_B`, expressed in the
+  /// body frame B. If `axis_B` is `std::nullopt`, any existing registration
+  /// for `body` is cleared. May be called any number of times before
+  /// Finalize(); a subsequent call overwrites any prior registration. A
+  /// nonzero `axis_B` is normalized before storage.
+  ///
+  /// @param[in] body    The rigid body (link).
+  /// @param[in] axis_B  A nonzero vector giving the rotation-axis direction
+  ///                    in the body frame B, or `std::nullopt` to clear.
+  ///
+  /// @throws std::exception if called after Finalize().
+  /// @throws std::exception if `axis_B` has a value and `body` is the
+  ///         world body.
+  /// @throws std::exception if `axis_B` has a value and can't be normalized.
+  void SetSurfaceVelocityAxis(const RigidBody<T>& body,
+                              std::optional<Eigen::Vector3d> axis_B);
+
+  /// Returns the surface-velocity axis for `body` expressed in the body frame
+  /// B, or `std::nullopt` if `body` has not been registered. Works both
+  /// before and after Finalize(). The returned vector is not necessarily the
+  /// same as was passed to SetSurfaceVelocityAxis(); we store the normalized
+  /// version of that vector.
+  std::optional<Eigen::Vector3d> GetSurfaceVelocityAxis(
+      const RigidBody<T>& body) const;
 
   /// @}
 
@@ -3131,15 +3262,15 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
     DRAKE_MBP_THROW_IF_NOT_FINALIZED();
     this->ValidateContext(context);
     this->ValidateCreatedForThisSystem(state);
-    internal_tree().SetDefaultState(context, state);
+    internal::MultibodyTreeSystem<T>::SetDefaultState(context, state);
     deformable_model().SetDefaultState(context, state);
   }
 
-  /// Assigns random values to all elements of the state, by drawing samples
-  /// independently for each joint/free body (coming soon: and then
-  /// solving a mathematical program to "project" these samples onto the
-  /// registered system constraints). If a random distribution is not specified
-  /// for a joint/free body, the default state is used.
+  /// Assigns random values to all elements of the state that support random
+  /// values, by drawing samples independently for each joint/free body (coming
+  /// soon: and then solving a mathematical program to "project" these samples
+  /// onto the registered system constraints). If a random distribution is not
+  /// specified for a joint/free body, the default state is used.
   ///
   /// @see @ref stochastic_systems
   void SetRandomState(const systems::Context<T>& context,
@@ -3148,6 +3279,8 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
     DRAKE_MBP_THROW_IF_NOT_FINALIZED();
     this->ValidateContext(context);
     this->ValidateCreatedForThisSystem(state);
+    internal::MultibodyTreeSystem<T>::SetRandomState(context, state, generator);
+    // TODO(SeanCurtis-TRI): This should be handled by MultibodyTreeSystem.
     internal_tree().SetRandomState(context, state, generator);
   }
 
@@ -5759,6 +5892,11 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
     return internal_tree().num_velocities(model_instance);
   }
 
+  /// Returns the size of the continuous miscellaneous state vector z for this
+  /// model.
+  /// @throws std::exception if called pre-finalize.
+  int num_misc_continuous_states() const;
+
   // N.B. The state in the Context may at some point contain values such as
   // integrated power and other discrete states, hence the specific name.
   /// Returns the size of the multibody system state vector x = [q v]. This
@@ -5952,6 +6090,7 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
     };
     std::vector<Instance> instance;
     systems::InputPortIndex geometry_query;  // Declared in ctor, not Finalize.
+    systems::InputPortIndex surface_speeds;
   };
 
   // This struct stores in one single place the index of all of our outputs.
@@ -5974,6 +6113,7 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
     };
     std::vector<Instance> instance;
     systems::OutputPortIndex geometry_pose;  // Declared in ctor, not Finalize.
+    systems::OutputPortIndex surface_displacements;
     // N.B. The deformable_body_configuration port is owned by DeformableModel,
     // so is not tracked here.
   };
@@ -6243,6 +6383,10 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
   void AddInForcesContinuous(const systems::Context<T>& context,
                              MultibodyForces<T>* forces) const override;
 
+  /// Computes the derivatives for the miscelleanous continuous state variables.
+  void DoCalcMiscDerivatives(const systems::Context<T>& context,
+                             systems::VectorBase<T>* zdot) const override;
+
   // Discrete system version of CalcForwardDynamics(). This method does not use
   // O(n) forward dynamics but a discrete solver according to the discrete
   // contact solver specified.
@@ -6404,6 +6548,18 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
   // one).
   void RegisterRigidBodyWithSceneGraph(const RigidBody<T>& body);
 
+  // Calc method for the "surface_displacements" output port.
+  void CalcSurfaceDisplacementOutput(const systems::Context<T>& context,
+                                     systems::BusValue* output) const;
+
+  // Declares the MultibodyPlant-owned miscellaneous continuous state variables
+  // and records the offsets for each feature that owns a slice of z.
+  void DeclareMiscContinuousStates();
+
+  // Periodic unrestricted update handler for surface displacement (discrete).
+  systems::EventStatus CalcSurfaceDisplacementUpdate(
+      const systems::Context<T>& context, systems::State<T>* state) const;
+
   // Calc method for the "state" output port.
   void CalcStateOutput(const systems::Context<T>& context,
                        systems::BasicVector<T>* output) const;
@@ -6501,6 +6657,20 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
       const systems::Context<T>& context,
       internal::HydroelasticContactForcesContinuousCacheData<T>* output) const
     requires scalar_predicate<T>::is_bool;
+
+  // Computes the surface velocity at any point on a body B with the given
+  // surface normal.
+  // Returns zero if `body_index` indicates a body with no registered surface
+  // velocity, if the "surface_speeds" port is unconnected, or if the body's
+  // signal is absent.
+  //
+  // @param body_index  Index of the body B owning the surface.
+  // @param context     The plant's context (used to read port and parameter).
+  // @param n_W         Contact normal expressed in the world frame.
+  // @retval v_B_ss     Surface velocity expressed in the body frame B.
+  Vector3<T> ComputeSurfaceVelocity(BodyIndex body_index,
+                                    const systems::Context<T>& context,
+                                    const Vector3<T>& n_W) const;
 
   // Eval version of CalcHydroelasticContactForces().
   const internal::HydroelasticContactForcesContinuousCacheData<T>&
@@ -6746,6 +6916,15 @@ class MultibodyPlant final : public internal::MultibodyTreeSystem<T> {
   // Map of tendon constraint specifications.
   std::map<MultibodyConstraintId, internal::TendonConstraintSpec>
       tendon_constraints_specs_;
+
+  // Per-body surface-velocity data. Keyed by BodyIndex for O(lg N) lookup;
+  // iteration order (ascending BodyIndex) defines displacement state indices.
+  // Frozen at Finalize().
+  std::map<BodyIndex, internal::SurfaceVelocityEntry> surface_velocity_bodies_;
+
+  // Abstract state index for surface displacement accumulation (discrete mode
+  // only). Only valid when surface_velocity_bodies_ is non-empty.
+  systems::AbstractStateIndex surface_displacements_abstract_state_index_{};
 
   // Whether to apply collsion filters to adjacent bodies at Finalize().
   bool adjacent_bodies_collision_filters_{
