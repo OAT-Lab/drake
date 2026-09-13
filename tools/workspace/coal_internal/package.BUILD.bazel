@@ -1,0 +1,113 @@
+# -*- bazel -*-
+
+load("@drake//tools/install:install.bzl", "install")
+load("@drake//tools/workspace:generate_file.bzl", "generate_file")
+load("@drake//tools/workspace:vendor_cxx.bzl", "cc_library_vendored")
+
+licenses(["notice"])  # BSD-3-Clause
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+generate_file(
+    name = "include/coal/deprecated.hh",
+    content = """
+#pragma once
+// Simplified version of the upstream deprecation macros.
+#define COAL_DEPRECATED __attribute__ ((deprecated))
+#define COAL_DEPRECATED_MESSAGE(message) __attribute__ ((deprecated(#message)))
+#define COAL_DEPRECATED_HEADER(MSG)
+    """,
+)
+
+generate_file(
+    name = "include/coal/config.hh",
+    content = """
+#pragma once
+// Simplified version of the upstream config header. Drake builds Coal
+// statically, so the symbol visibility macros are empty. 
+// COAL_HAS_OCTOMAP is left undefined to disable octree support.
+#define COAL_DLLAPI
+#define COAL_LOCAL
+    """,
+)
+
+generate_file(
+    name = "include/coal/warning.hh",
+    content = """
+#pragma once
+// The upstream warning header only defines COAL_WARN, which Coal's own code
+// does not use. This placeholder satisfies the #include.
+    """,
+)
+
+_HDRS_GLOB = glob(
+    include = [
+        "include/**/*.h",
+        "include/**/*.hh",
+        "include/**/*.hxx",
+    ],
+    allow_empty = False,
+    exclude = [
+        "include/hpp/**",
+        "include/coal/octree.h",
+        "include/coal/serialization/**",
+        "include/coal/mesh_loader/**",
+        "include/coal/broadphase/**",
+    ],
+)
+
+_SRCS = glob(
+    include = [
+        "src/**/*.cpp",
+        "src/**/*.h",
+    ],
+    allow_empty = False,
+    exclude = [
+        "src/mesh_loader/**",
+        "src/serialization/**",
+        "src/octree.cpp",
+        "src/broadphase/**",
+    ],
+)
+
+_HDRS = _HDRS_GLOB + [
+    "include/coal/deprecated.hh",
+    "include/coal/config.hh",
+    "include/coal/warning.hh",
+]
+
+cc_library_vendored(
+    name = "coal",
+    srcs = _SRCS,
+    srcs_vendored = [
+        x.replace("src/", "drake_src/src/")
+        for x in _SRCS
+    ],
+    hdrs = _HDRS,
+    hdrs_vendored = [
+        x.replace("include/coal/", "drake_hdr/coal/")
+        for x in _HDRS
+    ],
+    copts = [
+        "-std=c++23",
+        "-fvisibility=hidden",
+        "-w",
+    ],
+    includes = ["drake_hdr"],
+    isystem = True,
+    linkstatic = True,
+    # Coal's headers defeat the inline-namespace wrapping heuristics, which
+    # results in libc++ headers being included inside the wrapped namespace.
+    # Fall back to marking the existing namespaces hidden (like ipopt_internal, clp_internal)
+    vendor_tool_args = ["--no-inline-namespace"],
+    deps = [
+        "@eigen",
+    ],
+)
+
+install(
+    name = "install",
+    docs = ["LICENSE"],
+)

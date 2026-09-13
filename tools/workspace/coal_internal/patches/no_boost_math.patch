@@ -1,0 +1,148 @@
+diff --git include/coal/BV/RSS.h include/coal/BV/RSS.h
+index 8bf2bd07..d52ad080 100644
+--- include/coal/BV/RSS.h
++++ include/coal/BV/RSS.h
+@@ -40,7 +40,7 @@
+ 
+ #include "coal/data_types.h"
+ 
+-#include <boost/math/constants/constants.hpp>
++#include <numbers>
+ 
+ namespace coal {
+ 
+@@ -136,7 +136,7 @@ struct COAL_DLLAPI RSS {
+   /// @brief Volume of the RSS
+   inline CoalScalar volume() const {
+     return (length[0] * length[1] * 2 * radius +
+-            4 * boost::math::constants::pi<CoalScalar>() * radius * radius *
++            4 * std::numbers::pi_v<CoalScalar> * radius * radius *
+                 radius);
+   }
+ 
+diff --git include/coal/shape/geometric_shape_to_BVH_model.h include/coal/shape/geometric_shape_to_BVH_model.h
+index 6f43e9d7..b232cb5d 100644
+--- include/coal/shape/geometric_shape_to_BVH_model.h
++++ include/coal/shape/geometric_shape_to_BVH_model.h
+@@ -40,7 +40,7 @@
+ 
+ #include "coal/shape/geometric_shapes.h"
+ #include "coal/BVH/BVH_model.h"
+-#include <boost/math/constants/constants.hpp>
++#include <numbers>
+ 
+ namespace coal {
+ 
+@@ -96,7 +96,7 @@ void generateBVHModel(BVHModel<BV>& model, const Sphere& shape,
+ 
+   CoalScalar r = shape.radius;
+   CoalScalar phi, phid;
+-  const CoalScalar pi = boost::math::constants::pi<CoalScalar>();
++  const CoalScalar pi = std::numbers::pi_v<CoalScalar>;
+   phid = pi * 2 / seg;
+   phi = 0;
+ 
+@@ -178,7 +178,7 @@ void generateBVHModel(BVHModel<BV>& model, const Cylinder& shape,
+   CoalScalar r = shape.radius;
+   CoalScalar h = shape.halfLength;
+   CoalScalar phi, phid;
+-  const CoalScalar pi = boost::math::constants::pi<CoalScalar>();
++  const CoalScalar pi = std::numbers::pi_v<CoalScalar>;
+   phid = pi * 2 / tot;
+   phi = 0;
+ 
+@@ -248,7 +248,7 @@ void generateBVHModel(BVHModel<BV>& model, const Cylinder& shape,
+   CoalScalar r = shape.radius;
+   CoalScalar h = 2 * shape.halfLength;
+ 
+-  const CoalScalar pi = boost::math::constants::pi<CoalScalar>();
++  const CoalScalar pi = std::numbers::pi_v<CoalScalar>;
+   unsigned int tot = (unsigned int)(tot_for_unit_cylinder * r);
+   CoalScalar phid = pi * 2 / tot;
+ 
+@@ -271,7 +271,7 @@ void generateBVHModel(BVHModel<BV>& model, const Cone& shape,
+   CoalScalar h = shape.halfLength;
+ 
+   CoalScalar phi, phid;
+-  const CoalScalar pi = boost::math::constants::pi<CoalScalar>();
++  const CoalScalar pi = std::numbers::pi_v<CoalScalar>;
+   phid = pi * 2 / tot;
+   phi = 0;
+ 
+@@ -339,7 +339,7 @@ void generateBVHModel(BVHModel<BV>& model, const Cone& shape,
+   CoalScalar r = shape.radius;
+   CoalScalar h = 2 * shape.halfLength;
+ 
+-  const CoalScalar pi = boost::math::constants::pi<CoalScalar>();
++  const CoalScalar pi = std::numbers::pi_v<CoalScalar>;
+   unsigned int tot = (unsigned int)(tot_for_unit_cone * r);
+   CoalScalar phid = pi * 2 / tot;
+ 
+diff --git include/coal/shape/geometric_shapes.h include/coal/shape/geometric_shapes.h
+index 1050f692..3c13f6a7 100644
+--- include/coal/shape/geometric_shapes.h
++++ include/coal/shape/geometric_shapes.h
+@@ -41,7 +41,7 @@
+ #include <vector>
+ #include <memory>
+ 
+-#include <boost/math/constants/constants.hpp>
++#include <numbers>
+ 
+ #include "coal/collision_object.h"
+ #include "coal/data_types.h"
+@@ -264,7 +264,7 @@ class COAL_DLLAPI Sphere : public ShapeBase {
+   }
+ 
+   CoalScalar computeVolume() const {
+-    return 4 * boost::math::constants::pi<CoalScalar>() * radius * radius *
++    return 4 * std::numbers::pi_v<CoalScalar> * radius * radius *
+            radius / 3;
+   }
+ 
+@@ -338,7 +338,7 @@ class COAL_DLLAPI Ellipsoid : public ShapeBase {
+   }
+ 
+   CoalScalar computeVolume() const {
+-    return 4 * boost::math::constants::pi<CoalScalar>() * radii[0] * radii[1] *
++    return 4 * std::numbers::pi_v<CoalScalar> * radii[0] * radii[1] *
+            radii[2] / 3;
+   }
+ 
+@@ -408,15 +408,15 @@ class COAL_DLLAPI Capsule : public ShapeBase {
+   NODE_TYPE getNodeType() const { return GEOM_CAPSULE; }
+ 
+   CoalScalar computeVolume() const {
+-    return boost::math::constants::pi<CoalScalar>() * radius * radius *
++    return std::numbers::pi_v<CoalScalar> * radius * radius *
+            ((halfLength * 2) + radius * 4 / 3.0);
+   }
+ 
+   Matrix3s computeMomentofInertia() const {
+     CoalScalar v_cyl = radius * radius * (halfLength * 2) *
+-                       boost::math::constants::pi<CoalScalar>();
++                       std::numbers::pi_v<CoalScalar>;
+     CoalScalar v_sph = radius * radius * radius *
+-                       boost::math::constants::pi<CoalScalar>() * 4 / 3.0;
++                       std::numbers::pi_v<CoalScalar> * 4 / 3.0;
+ 
+     CoalScalar h2 = halfLength * halfLength;
+     CoalScalar r2 = radius * radius;
+@@ -492,7 +492,7 @@ class COAL_DLLAPI Cone : public ShapeBase {
+   NODE_TYPE getNodeType() const { return GEOM_CONE; }
+ 
+   CoalScalar computeVolume() const {
+-    return boost::math::constants::pi<CoalScalar>() * radius * radius *
++    return std::numbers::pi_v<CoalScalar> * radius * radius *
+            (halfLength * 2) / 3;
+   }
+ 
+@@ -593,7 +593,7 @@ class COAL_DLLAPI Cylinder : public ShapeBase {
+   NODE_TYPE getNodeType() const { return GEOM_CYLINDER; }
+ 
+   CoalScalar computeVolume() const {
+-    return boost::math::constants::pi<CoalScalar>() * radius * radius *
++    return std::numbers::pi_v<CoalScalar> * radius * radius *
+            (halfLength * 2);
+   }
+ 

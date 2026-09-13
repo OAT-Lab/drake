@@ -126,6 +126,7 @@ drake_py_binary(
         # These should all be of the form "@foo_internal//:__subpackages__".
         "@clarabel_cpp_internal//:__subpackages__",
         "@clp_internal//:__subpackages__",
+        "@coal_internal//:__subpackages__",
         "@coinutils_internal//:__subpackages__",
         "@fcl_internal//:__subpackages__",
         "@gz_math_internal//:__subpackages__",

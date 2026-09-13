@@ -1,0 +1,62 @@
+diff --git src/collision_func_matrix.cpp src/collision_func_matrix.cpp
+index b654cfbd..00f3ca5e 100644
+--- src/collision_func_matrix.cpp
++++ src/collision_func_matrix.cpp
+@@ -38,11 +38,11 @@
+ #include "coal/collision_func_matrix.h"
+ 
+ #include "coal/internal/traversal_node_setup.h"
+-#include <../src/collision_node.h>
++#include "../src/collision_node.h"
+ #include "coal/narrowphase/narrowphase.h"
+ #include "coal/internal/shape_shape_func.h"
+ #include "coal/shape/geometric_shapes_traits.h"
+-#include <../src/traits_traversal.h>
++#include "../src/traits_traversal.h"
+ 
+ namespace coal {
+ 
+diff --git src/collision_node.cpp src/collision_node.cpp
+index 77c6adb0..38d1807e 100644
+--- src/collision_node.cpp
++++ src/collision_node.cpp
+@@ -35,7 +35,7 @@
+ 
+ /** \author Jia Pan */
+ 
+-#include <../src/collision_node.h>
++#include "../src/collision_node.h"
+ #include "coal/internal/traversal_recurse.h"
+ 
+ namespace coal {
+diff --git src/distance_func_matrix.cpp src/distance_func_matrix.cpp
+index d9aae3ba..dd4be463 100644
+--- src/distance_func_matrix.cpp
++++ src/distance_func_matrix.cpp
+@@ -37,11 +37,11 @@
+ 
+ #include "coal/distance_func_matrix.h"
+ 
+-#include <../src/collision_node.h>
++#include "../src/collision_node.h"
+ #include "coal/internal/shape_shape_func.h"
+ #include "coal/internal/traversal_node_setup.h"
+ #include "coal/internal/shape_shape_func.h"
+-#include <../src/traits_traversal.h>
++#include "../src/traits_traversal.h"
+ 
+ namespace coal {
+ 
+diff --git src/traits_traversal.h src/traits_traversal.h
+index 5667a69c..ff9c004d 100644
+--- src/traits_traversal.h
++++ src/traits_traversal.h
+@@ -9,7 +9,7 @@
+ 
+ #include "coal/collision_func_matrix.h"
+ #include "coal/narrowphase/narrowphase.h"
+-#include <../src/collision_node.h>
++#include "../src/collision_node.h"
+ #include "coal/internal/traversal_node_setup.h"
+ #include "coal/internal/shape_shape_func.h"
+ 
