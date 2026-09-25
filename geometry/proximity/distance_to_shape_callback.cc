@@ -9,6 +9,9 @@
 #include "drake/geometry/proximity/distance_to_shape_touching.h"
 #include "drake/math/rotation_matrix.h"
 
+#include "coal/distance.h"
+#include "coal/shape/geometric_shapes.h"
+
 namespace drake {
 namespace geometry {
 namespace internal {
@@ -69,18 +72,43 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const math::RigidTransformd& X_WB,
                                   const fcl::DistanceRequestd& request,
                                   SignedDistancePair<double>* pair_data) {
-  fcl::DistanceResultd result;
-  fcl::distance(&a, &b, request, result);
+  double min_distance{};
+  Eigen::Vector3d p_WCa, p_WCb;
+
+  const auto* box_A =
+      dynamic_cast<const fcl::Boxd*>(a.collisionGeometry().get());
+  const auto* box_B =
+      dynamic_cast<const fcl::Boxd*>(b.collisionGeometry().get());
+
+  if (box_A != nullptr && box_B != nullptr) {
+    coal::Box coal_A(box_A->side);
+    coal::Box coal_B(box_B->side);
+    const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
+    const coal::Transform3s tf_B(X_WB.rotation().matrix(), X_WB.translation());
+
+    coal::DistanceRequest coal_request;
+
+    coal::DistanceResult coal_result;
+
+    coal::distance(&coal_A, tf_A, &coal_B, tf_B, coal_request, coal_result);
+    min_distance = coal_result.min_distance;
+    p_WCa = coal_result.nearest_points[0];
+    p_WCb = coal_result.nearest_points[1];
+  } else {
+    fcl::DistanceResultd result;
+    fcl::distance(&a, &b, request, result);
+    min_distance = result.min_distance;
+    p_WCa = result.nearest_points[0];
+    p_WCb = result.nearest_points[1];
+  }
 
   pair_data->id_A = EncodedData(a).id();
   pair_data->id_B = EncodedData(b).id();
 
-  pair_data->distance = result.min_distance;
+  pair_data->distance = min_distance;
 
   // Setting the witness points.
-  const Eigen::Vector3d& p_WCa = result.nearest_points[0];
   pair_data->p_ACa = X_WA.inverse() * p_WCa;
-  const Eigen::Vector3d& p_WCb = result.nearest_points[1];
   pair_data->p_BCb = X_WB.inverse() * p_WCb;
 
   // Setting the normal.
@@ -89,11 +117,11 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   //  use this number.
   const double kEps = 1e-14;
 
-  if (std::abs(result.min_distance) < kEps) {
+  if (std::abs(min_distance) < kEps) {
     pair_data->nhat_BA_W = CalcGradientWhenTouching(
         a, X_WA, b, X_WB, pair_data->p_ACa, pair_data->p_BCb);
   } else {
-    pair_data->nhat_BA_W = (p_WCa - p_WCb) / result.min_distance;
+    pair_data->nhat_BA_W = (p_WCa - p_WCb) / min_distance;
   }
 }
 
