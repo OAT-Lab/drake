@@ -351,6 +351,7 @@ drake_cc_library(
         "//common:drake_export",
         "//common:nice_type_name",
         "//geometry/query_results:signed_distance_pair",
+        "@coal_internal//:coal",
     ],
 )
 
