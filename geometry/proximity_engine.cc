@@ -13,6 +13,7 @@
 #include <utility>
 #include <vector>
 
+#include <coal/shape/convex.h>
 #include <fcl/fcl.h>
 #include <fmt/format.h>
 
@@ -29,6 +30,7 @@
 #include "drake/geometry/proximity/hydroelastic_calculator.h"
 #include "drake/geometry/proximity/hydroelastic_internal.h"
 #include "drake/geometry/proximity/penetration_as_point_pair_callback.h"
+#include "drake/geometry/proximity/polygon_to_triangle_mesh.h"
 #include "drake/geometry/read_obj.h"
 #include "drake/geometry/utilities.h"
 
@@ -68,6 +70,8 @@ struct ConvexHullCacheEntry {
   shared_ptr<std::vector<Vector3d>> unit_vertices;
   // Face topology data; identical across all scale factors.
   shared_ptr<std::vector<int>> faces;
+  // The same topology triangulated, for Coal's Convex.
+  shared_ptr<std::vector<coal::Triangle>> coal_faces;
   // Number of convex hull faces.
   int num_faces{0};
   // Sub-cache of fcl::Convexd objects keyed by (scale_x, scale_y, scale_z,
@@ -77,6 +81,9 @@ struct ConvexHullCacheEntry {
   // InflateAabbForHydroelasticTypesOnly() mutates the geometry's aabb_local
   // in-place.
   std::map<std::array<double, 4>, shared_ptr<fcl::Convexd>> scaled_hulls;
+  // Coal counterparts, same keys, sharing the same vertex arrays.
+  std::map<std::array<double, 4>,
+           shared_ptr<coal::Convex<coal::Triangle>>> scaled_coal_hulls;
 };
 
 class MapStringToConvexHullCache
@@ -1299,6 +1306,23 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
       entry.unit_vertices = std::move(unit_verts);
       entry.faces = make_shared<std::vector<int>>(hull.face_data());
       entry.num_faces = hull.num_elements();
+      
+      // triangulation of mesh for coal. 
+      // Coal's distance computation only accepts triangular faces, 
+      // so this runs Drake's triangulation and copies the three indices of 
+      // each triangle into a coal::Triangle 
+      const TriangleSurfaceMesh<double> tri_mesh =
+          MakeTriangleFromPolygonMesh(hull);
+      auto coal_tris = make_shared<std::vector<coal::Triangle>>();
+      coal_tris->reserve(tri_mesh.num_triangles());
+      for (int t = 0; t < tri_mesh.num_triangles(); ++t) {
+        const SurfaceTriangle& tri = tri_mesh.element(t);
+        coal_tris->emplace_back(
+            static_cast<coal::Triangle::index_type>(tri.vertex(0)),
+            static_cast<coal::Triangle::index_type>(tri.vertex(1)),
+            static_cast<coal::Triangle::index_type>(tri.vertex(2)));
+      }
+      entry.coal_faces = std::move(coal_tris);
     }
 
     // Look up (or create) the fcl::Convexd for the current (scale, margin)
@@ -1310,6 +1334,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     const double margin = static_cast<const ReifyData*>(user_data)->margin;
     const std::array<double, 4> scale_key{scale[0], scale[1], scale[2], margin};
     shared_ptr<fcl::Convexd>& fcl_convex = entry.scaled_hulls[scale_key];
+    shared_ptr<coal::Convex<coal::Triangle>>& coal_convex =
+      entry.scaled_coal_hulls[scale_key];
     if (fcl_convex == nullptr) {
       // For the unit-scale case (the common case), share the unit_vertices
       // shared_ptr directly rather than allocating and filling a second vector.
@@ -1323,9 +1349,15 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
           verts_for_fcl->push_back(uv.array() * scale.array());
         }
       }
+      coal_convex = make_shared<coal::Convex<coal::Triangle>>(
+        verts_for_fcl,
+        static_cast<unsigned int>(verts_for_fcl->size()),
+        entry.coal_faces,
+        static_cast<unsigned int>(entry.coal_faces->size()));
       fcl_convex = make_shared<fcl::Convexd>(std::move(verts_for_fcl),
                                              entry.num_faces, entry.faces);
     }
+    
 
     // Record the reverse mapping so RemoveGeometry() can evict stale entries.
     geometry_to_hull_key_[static_cast<const ReifyData*>(user_data)->id] = {
