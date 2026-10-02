@@ -230,6 +230,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
         other.geometries_for_deformable_contact_;
     mesh_distance_boundary_cahe_ = other.mesh_distance_boundary_cahe_;
     convex_hull_cache_ = other.convex_hull_cache_;
+    // Coal geometry for each fcl::Convexd, keyed by the fcl geometry pointer.
+    coal_convexes_ = other.coal_convexes_;
     geometry_to_hull_key_ = other.geometry_to_hull_key_;
     dynamic_tree_.clear();
     dynamic_objects_.clear();
@@ -291,7 +293,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     engine->geometries_for_deformable_contact_ =
         this->geometries_for_deformable_contact_;
     engine->mesh_distance_boundary_cahe_ = this->mesh_distance_boundary_cahe_;
-    engine->convex_hull_cache_ = this->convex_hull_cache_;
+    engine->coal_convexes_ = this->coal_convexes_;
     engine->geometry_to_hull_key_ = this->geometry_to_hull_key_;
     engine->distance_tolerance_ = this->distance_tolerance_;
 
@@ -518,6 +520,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
         auto& scaled_hulls = cache_it->second.scaled_hulls;
         if (auto hull_it = scaled_hulls.find(scale_key);
             hull_it != scaled_hulls.end() && hull_it->second.use_count() == 1) {
+          coal_convexes_.erase(hull_it->second.get());
+          cache_it->second.scaled_coal_hulls.erase(scale_key);
           scaled_hulls.erase(hull_it);
           if (scaled_hulls.empty()) {
             convex_hull_cache_.erase(cache_it);
@@ -699,7 +703,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     std::vector<SignedDistancePair<T>> witness_pairs;
     // All these quantities are aliased in the callback data.
     shape_distance::CallbackData<T> data{&collision_filter_, &X_WGs,
-                                         max_distance, &witness_pairs};
+                                         max_distance, &witness_pairs, 
+                                         &coal_convexes_};
     data.request.enable_nearest_points = true;
     data.request.enable_signed_distance = true;
     data.request.gjk_solver_type = fcl::GJKSolverType::GST_LIBCCD;
@@ -743,7 +748,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     double max_distance = std::numeric_limits<double>::infinity();
     // All these quantities are aliased in the callback data.
     shape_distance::CallbackData<T> data{nullptr, &X_WGs, max_distance,
-                                         &witness_pairs};
+                                         &witness_pairs, &coal_convexes_};
     data.request.enable_nearest_points = true;
     data.request.enable_signed_distance = true;
     data.request.gjk_solver_type = fcl::GJKSolverType::GST_LIBCCD;
@@ -1110,6 +1115,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     }
     return n;
   }
+  int coal_convex_entries() const { return ssize(coal_convexes_); }
 
   bool geometry_hull_key_valid(GeometryId id) const {
     if (!geometry_to_hull_key_.contains(id)) return false;
@@ -1356,6 +1362,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
         static_cast<unsigned int>(entry.coal_faces->size()));
       fcl_convex = make_shared<fcl::Convexd>(std::move(verts_for_fcl),
                                              entry.num_faces, entry.faces);
+      coal_convexes_[fcl_convex.get()] = coal_convex;
     }
     
 
@@ -1530,6 +1537,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   //     Stores one fcl::Convexd per distinct scale, sharing face topology
   //     across all scales of the same source file.
   MapStringToConvexHullCache convex_hull_cache_{};
+  // Coal geometry for each fcl::Convexd, keyed by the fcl geometry pointer.
+  shape_distance::CoalConvexMap coal_convexes_{};
 
   // Reverse map from GeometryId to its convex hull cache key. Populated in
   // ImplementFromConvexHull() for Mesh and Convex geometries; used by
@@ -1837,6 +1846,11 @@ int ProximityEngine<T>::convex_hull_cache_file_entries() const {
 template <typename T>
 int ProximityEngine<T>::convex_hull_cache_hull_entries() const {
   return impl_->convex_hull_cache_hull_entries();
+}
+
+template <typename T>
+int ProximityEngine<T>::coal_convex_entries() const {
+  return impl_->coal_convex_entries();
 }
 
 template <typename T>

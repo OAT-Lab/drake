@@ -414,6 +414,7 @@ class ProximityEngine {
   // Returns the total number of (scale,margin) sub-entries across all file
   // entries in the convex hull cache.
   int convex_hull_cache_hull_entries() const;
+  int coal_convex_entries() const;
   // Returns true if id is in the reverse map and its key pair is valid.
   bool geometry_hull_key_valid(GeometryId id) const;
   // Returns true if id is absent from the reverse map.
