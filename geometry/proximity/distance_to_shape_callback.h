@@ -1,9 +1,12 @@
 #pragma once
 
+#include <memory>
 #include <unordered_map>
 #include <vector>
 
 #include <fcl/fcl.h>
+
+#include "coal/shape/convex.h"
 
 #include "drake/common/drake_export.h"
 #include "drake/common/eigen_types.h"
@@ -23,6 +26,13 @@ namespace geometry {
 namespace internal {
 namespace shape_distance DRAKE_NO_EXPORT {
 
+/* Maps an fcl convex geometry to the equivalent Coal geometry, built at
+ registration time and sharing the same vertex array. Absent entries simply
+ mean the pair falls back to fcl. */
+using CoalConvexMap =
+    std::unordered_map<const fcl::CollisionGeometryd*,
+                       std::shared_ptr<coal::Convex<coal::Triangle>>>;
+                       
 /* Supporting data for the shape-to-shape signed distance callback (see
  Callback below). It includes:
 
@@ -51,11 +61,13 @@ struct CallbackData {
       const CollisionFilter* collision_filter_in,
       const std::unordered_map<GeometryId, math::RigidTransform<T>>* X_WGs_in,
       double max_distance_in,
-      std::vector<SignedDistancePair<T>>* nearest_pairs_in)
+      std::vector<SignedDistancePair<T>>* nearest_pairs_in,
+      const CoalConvexMap* coal_convexes_in = nullptr)
       : collision_filter(collision_filter_in),
         X_WGs(*X_WGs_in),
         max_distance(max_distance_in),
-        nearest_pairs(*nearest_pairs_in) {
+        nearest_pairs(*nearest_pairs_in),
+        coal_convexes(coal_convexes_in) {
     DRAKE_DEMAND(X_WGs_in != nullptr);
     DRAKE_DEMAND(nearest_pairs_in != nullptr);
   }
@@ -74,6 +86,8 @@ struct CallbackData {
 
   /* The results of the distance query.  */
   std::vector<SignedDistancePair<T>>& nearest_pairs{};
+  /* Coal counterparts of the fcl convex geometries, or null. Aliased. */
+  const CoalConvexMap* coal_convexes{};
 };
 
 /* A functor to support ComputeNarrowPhaseDistance(). It computes the signed
@@ -178,7 +192,8 @@ void CalcDistanceFallback(const fcl::CollisionObjectd& a,
                           const fcl::CollisionObjectd& b,
                           const math::RigidTransform<T>&,
                           const fcl::DistanceRequestd&,
-                          SignedDistancePair<T>* /* pair_data */) {
+                          SignedDistancePair<T>* /* pair_data */,
+                          const CoalConvexMap* = nullptr) {
   // By default, there is no fallback. For every scalar type for which one
   // actually exists, it should be specialized below.
   throw std::logic_error(fmt::format(
@@ -197,7 +212,8 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const fcl::CollisionObjectd& b,
                                   const math::RigidTransformd& X_WB,
                                   const fcl::DistanceRequestd& request,
-                                  SignedDistancePair<double>* pair_data);
+                                  SignedDistancePair<double>* pair_data,
+                                  const CoalConvexMap* coal_convexes);
 
 //@}
 
@@ -215,6 +231,8 @@ bool RequiresFallback(const fcl::CollisionObjectd& a,
  @param X_WB            The pose of object `b` expressed in the world frame.
  @param request         The distance request parameters.
  @param result          The structure to capture the computation results in.
+ @param coal_convexes   Coal counterparts of the fcl convex geometries, or
+                        null to use fcl exclusively.
  @tparam T Computation scalar type.
  @pre The pair should *not* be (Halfspace, X), unless X is Sphere.  */
 template <typename T>
@@ -223,7 +241,8 @@ void ComputeNarrowPhaseDistance(const fcl::CollisionObjectd& a,
                                 const fcl::CollisionObjectd& b,
                                 const math::RigidTransform<T>& X_WB,
                                 const fcl::DistanceRequestd& request,
-                                SignedDistancePair<T>* result);
+                                SignedDistancePair<T>* result,
+                                const CoalConvexMap* coal_convexes = nullptr);
 
 // TODO(SeanCurtis-TRI): Replace this clunky mechanism with a new mechanism
 // which does this implicitly via ADL and templates.

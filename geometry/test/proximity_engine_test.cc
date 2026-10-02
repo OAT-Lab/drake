@@ -124,6 +124,10 @@ class ProximityEngineTester {
     return engine.convex_hull_cache_hull_entries();
   }
 
+  static int coal_convex_entries(const ProximityEngine<double>& engine) {
+    return engine.coal_convex_entries();
+  }
+
   // Returns true if the given geometry id is in the reverse map AND its
   // recorded (file_key, scale_key) refer to a valid cache entry.
   static bool geometry_hull_key_valid(const ProximityEngine<double>& engine,
@@ -856,6 +860,22 @@ TEST_F(ProximityEngineTests,
   EXPECT_EQ(engine_.FindCollisionCandidates().size(), 1);
 }
 
+TEST_F(ProximityEngineTests, ConvexConvexDistanceThroughEngine) {
+  const std::string path =
+      FindResourceOrThrow("drake/geometry/test/quad_cube.obj");
+  AddDynamic(Convex(path, 1.0));
+  const GeometryId id_B = AddDynamic(Convex(path, 1.0), Vector3d(5, 0, 0));
+
+  auto pairs = engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+  ASSERT_EQ(pairs.size(), 1);
+  EXPECT_NEAR(pairs[0].distance, 3.0, 1e-6);
+
+  X_WGs_.at(id_B) = RigidTransformd(Vector3d(1.5, 0, 0));
+  engine_.UpdateWorldPoses(X_WGs_);
+  pairs = engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+  ASSERT_EQ(pairs.size(), 1);
+  EXPECT_NEAR(pairs[0].distance, -0.5, 1e-6);
+}
 // Tests that the convex hull cache is correctly evicted when geometries are
 // removed. Exercises three eviction cases in sequence using the same initial
 // population, plus a running invariant check on the reverse map.
@@ -907,6 +927,7 @@ TEST_F(ProximityEngineTests, ConvexHullCacheEviction) {
     EXPECT_TRUE(Tester::geometry_hull_reverse_map_consistent(engine_));
     EXPECT_EQ(Tester::convex_hull_cache_file_entries(engine_), expected_files);
     EXPECT_EQ(Tester::convex_hull_cache_hull_entries(engine_), expected_hulls);
+    EXPECT_EQ(Tester::coal_convex_entries(engine_), expected_hulls);
   };
 
   // Confirm initial conditions.

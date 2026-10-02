@@ -4,13 +4,13 @@
 #include <limits>
 #include <utility>
 
+#include "coal/distance.h"
+#include "coal/shape/geometric_shapes.h"
+
 #include "drake/common/default_scalars.h"
 #include "drake/geometry/proximity/distance_to_point_callback.h"
 #include "drake/geometry/proximity/distance_to_shape_touching.h"
 #include "drake/math/rotation_matrix.h"
-
-#include "coal/distance.h"
-#include "coal/shape/geometric_shapes.h"
 
 namespace drake {
 namespace geometry {
@@ -71,7 +71,8 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const fcl::CollisionObjectd& b,
                                   const math::RigidTransformd& X_WB,
                                   const fcl::DistanceRequestd& request,
-                                  SignedDistancePair<double>* pair_data) {
+                                  SignedDistancePair<double>* pair_data,
+                                  const CoalConvexMap* coal_convexes) {
   double min_distance{};
   Eigen::Vector3d p_WCa, p_WCb;
 
@@ -79,8 +80,33 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
       dynamic_cast<const fcl::Boxd*>(a.collisionGeometry().get());
   const auto* box_B =
       dynamic_cast<const fcl::Boxd*>(b.collisionGeometry().get());
+  const auto* conv_A =
+      dynamic_cast<const fcl::Convexd*>(a.collisionGeometry().get());
+  const auto* conv_B =
+      dynamic_cast<const fcl::Convexd*>(b.collisionGeometry().get());
 
-  if (box_A != nullptr && box_B != nullptr) {
+  const coal::Convex<coal::Triangle>* coal_mesh_A = nullptr;
+  const coal::Convex<coal::Triangle>* coal_mesh_B = nullptr;
+  if (coal_convexes != nullptr && conv_A != nullptr && conv_B != nullptr) {
+    const auto it_A = coal_convexes->find(conv_A);
+    const auto it_B = coal_convexes->find(conv_B);
+    if (it_A != coal_convexes->end() && it_B != coal_convexes->end()) {
+      coal_mesh_A = it_A->second.get();
+      coal_mesh_B = it_B->second.get();
+    }
+  }
+
+  if (coal_mesh_A != nullptr) {
+    const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
+    const coal::Transform3s tf_B(X_WB.rotation().matrix(), X_WB.translation());
+    coal::DistanceRequest coal_request;
+    coal::DistanceResult coal_result;
+    coal::distance(coal_mesh_A, tf_A, coal_mesh_B, tf_B, coal_request,
+                   coal_result);
+    min_distance = coal_result.min_distance;
+    p_WCa = coal_result.nearest_points[0];
+    p_WCb = coal_result.nearest_points[1];
+  } else if (box_A != nullptr && box_B != nullptr) {
     coal::Box coal_A(box_A->side);
     coal::Box coal_B(box_B->side);
     const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
@@ -151,11 +177,12 @@ void ComputeNarrowPhaseDistance(const fcl::CollisionObjectd& a,
                                 const fcl::CollisionObjectd& b,
                                 const math::RigidTransform<T>& X_WB,
                                 const fcl::DistanceRequestd& request,
-                                SignedDistancePair<T>* result) {
+                                SignedDistancePair<T>* result,
+                                const CoalConvexMap* coal_convexes) {
   DRAKE_DEMAND(result != nullptr);
 
   if (RequiresFallback(a, b)) {
-    CalcDistanceFallback<T>(a, X_WA, b, X_WB, request, result);
+    CalcDistanceFallback<T>(a, X_WA, b, X_WB, request, result, coal_convexes);
     return;
   }
 
@@ -295,7 +322,8 @@ bool Callback(fcl::CollisionObjectd* object_A_ptr,
       SignedDistancePair<T> signed_pair;
       ComputeNarrowPhaseDistance(fcl_object_A, data.X_WGs.at(id_A),
                                  fcl_object_B, data.X_WGs.at(id_B),
-                                 data.request, &signed_pair);
+                                 data.request, &signed_pair,
+                                 data.coal_convexes);
       if (ExtractDoubleOrThrow(signed_pair.distance) <= data.max_distance) {
         data.nearest_pairs.emplace_back(std::move(signed_pair));
       }
