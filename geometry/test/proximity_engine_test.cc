@@ -876,6 +876,39 @@ TEST_F(ProximityEngineTests, ConvexConvexDistanceThroughEngine) {
   ASSERT_EQ(pairs.size(), 1);
   EXPECT_NEAR(pairs[0].distance, -0.5, 1e-6);
 }
+TEST_F(ProximityEngineTests, LargeConvexDistanceThroughEngine) {
+  const int num_rings = 7;
+  const int num_segments = 16;
+  Eigen::Matrix3Xd points(3, num_rings * num_segments + 2);
+  int k = 0;
+  points.col(k++) = Vector3d(1, 0, 0);
+  points.col(k++) = Vector3d(-1, 0, 0);
+  for (int i = 1; i <= num_rings; ++i) {
+    const double phi = M_PI * i / (num_rings + 1);
+    for (int j = 0; j < num_segments; ++j) {
+      const double theta = 2 * M_PI * j / num_segments;
+      points.col(k++) = Vector3d(std::cos(phi),
+                                 std::sin(phi) * std::cos(theta),
+                                 std::sin(phi) * std::sin(theta));
+    }
+  }
+  const Convex sphere_hull(points, "uv_sphere");
+
+  AddDynamic(sphere_hull);
+  const GeometryId id_B = AddDynamic(sphere_hull, Vector3d(5, 0, 0));
+  ASSERT_EQ(Tester::coal_convex_entries(engine_), 1);
+
+  for (const double angle : {0.0, 0.3, 1.1}) {
+    SCOPED_TRACE(fmt::format("angle = {}", angle));
+    X_WGs_.at(id_B) = RigidTransformd(math::RotationMatrixd::MakeXRotation(angle),
+                                      Vector3d(5, 0, 0));
+    engine_.UpdateWorldPoses(X_WGs_);
+    const auto pairs =
+        engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+    ASSERT_EQ(pairs.size(), 1);
+    EXPECT_NEAR(pairs[0].distance, 3.0, 1e-6);
+  }
+}
 // Tests that the convex hull cache is correctly evicted when geometries are
 // removed. Exercises three eviction cases in sequence using the same initial
 // population, plus a running invariant check on the reverse map.
