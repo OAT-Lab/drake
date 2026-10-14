@@ -1116,6 +1116,12 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     return n;
   }
   int coal_convex_entries() const { return ssize(coal_convexes_); }
+    bool has_coal_convex(GeometryId id) const {
+    const auto* object =
+        static_cast<const CollisionObjectd*>(GetCollisionObject(id));
+    return object != nullptr &&
+           coal_convexes_.contains(object->collisionGeometry().get());
+  }
 
   bool geometry_hull_key_valid(GeometryId id) const {
     if (!geometry_to_hull_key_.contains(id)) return false;
@@ -1851,6 +1857,11 @@ int ProximityEngine<T>::convex_hull_cache_hull_entries() const {
 template <typename T>
 int ProximityEngine<T>::coal_convex_entries() const {
   return impl_->coal_convex_entries();
+}
+
+template <typename T>
+bool ProximityEngine<T>::has_coal_convex(GeometryId id) const {
+  return impl_->has_coal_convex(id);
 }
 
 template <typename T>
