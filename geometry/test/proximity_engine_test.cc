@@ -128,6 +128,10 @@ class ProximityEngineTester {
     return engine.coal_convex_entries();
   }
 
+  static bool has_coal_convex(const ProximityEngine<double>& engine, GeometryId id) {
+    return engine.has_coal_convex(id);
+  }
+
   // Returns true if the given geometry id is in the reverse map AND its
   // recorded (file_key, scale_key) refer to a valid cache entry.
   static bool geometry_hull_key_valid(const ProximityEngine<double>& engine,
@@ -909,6 +913,31 @@ TEST_F(ProximityEngineTests, LargeConvexDistanceThroughEngine) {
     EXPECT_NEAR(pairs[0].distance, 3.0, 1e-6);
   }
 }
+
+TEST_F(ProximityEngineTests, CoalConvexSurvivesCopy) {
+  const std::string path =
+      FindResourceOrThrow("drake/geometry/test/quad_cube.obj");
+  const GeometryId id_A = AddDynamic(Convex(path, 1.0));
+  const GeometryId id_B = AddDynamic(Convex(path, 1.0), Vector3d(5, 0, 0));
+  ASSERT_TRUE(Tester::has_coal_convex(engine_, id_A));
+  ASSERT_TRUE(Tester::has_coal_convex(engine_, id_B));
+
+  const ProximityEngine<double> copy_constructed(engine_);
+  ProximityEngine<double> copy_assigned;
+  copy_assigned = engine_;
+
+  for (const ProximityEngine<double>* engine :
+      std::initializer_list<const ProximityEngine<double>*>{
+          &copy_constructed, &copy_assigned}) {
+    EXPECT_TRUE(Tester::has_coal_convex(*engine, id_A));
+    EXPECT_TRUE(Tester::has_coal_convex(*engine, id_B));
+    const auto pairs =
+        engine->ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+    ASSERT_EQ(pairs.size(), 1);
+    EXPECT_NEAR(pairs[0].distance, 3.0, 1e-6);
+  }
+}
+
 // Tests that the convex hull cache is correctly evicted when geometries are
 // removed. Exercises three eviction cases in sequence using the same initial
 // population, plus a running invariant check on the reverse map.

@@ -415,6 +415,7 @@ class ProximityEngine {
   // entries in the convex hull cache.
   int convex_hull_cache_hull_entries() const;
   int coal_convex_entries() const;
+  bool has_coal_convex(GeometryId id) const;
   // Returns true if id is in the reverse map and its key pair is valid.
   bool geometry_hull_key_valid(GeometryId id) const;
   // Returns true if id is absent from the reverse map.
