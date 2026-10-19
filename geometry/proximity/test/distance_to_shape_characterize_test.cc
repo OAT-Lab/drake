@@ -41,6 +41,26 @@ std::shared_ptr<coal::Convex<coal::Triangle>> MakeCoalConvex(
       static_cast<unsigned>(triangles->size()));
 }
 
+std::shared_ptr<const coal::CollisionGeometry> MakeCoalShape(
+    const fcl::CollisionGeometryd& geometry) {
+  if (const auto* box = dynamic_cast<const fcl::Boxd*>(&geometry)) {
+    return MakeCoalBox(box->side);
+  }
+  if (const auto* capsule = dynamic_cast<const fcl::Capsuled*>(&geometry)) {
+    return std::make_shared<coal::Capsule>(capsule->radius, capsule->lz);
+  }
+  if (const auto* cylinder = dynamic_cast<const fcl::Cylinderd*>(&geometry)) {
+    return std::make_shared<coal::Cylinder>(cylinder->radius, cylinder->lz);
+  }
+  if (const auto* ellipsoid = dynamic_cast<const fcl::Ellipsoidd*>(&geometry)) {
+    return std::make_shared<coal::Ellipsoid>(ellipsoid->radii);
+  }
+  if (const auto* convex = dynamic_cast<const fcl::Convexd*>(&geometry)) {
+    return MakeCoalConvex(*convex);
+  }
+  return nullptr;
+}
+
 /* Implementation of DistanceCallback for signed distance. */
 template <typename T>
 class SignedDistanceCallback : public DistanceCallback<T> {
@@ -51,10 +71,9 @@ class SignedDistanceCallback : public DistanceCallback<T> {
                   X_WGs) override {
     CoalShapeMap coal_shapes;
     for (const fcl::CollisionObjectd* obj : {obj_A, obj_B}) {
-      const auto* convex =
-          dynamic_cast<const fcl::Convexd*>(obj->collisionGeometry().get());
-      if (convex != nullptr) {
-        coal_shapes[convex] = MakeCoalConvex(*convex);
+      const fcl::CollisionGeometryd* geometry = obj->collisionGeometry().get();
+      if (auto shape = MakeCoalShape(*geometry)) {
+        coal_shapes[geometry] = std::move(shape);
       }
     }
     CallbackData<T> data(collision_filter, X_WGs,
@@ -119,15 +138,15 @@ INSTANTIATE_TEST_SUITE_P(
     ShapeDistance, DoubleTest,
     testing::Values(
         QueryInstance(kBox, kBox, 4e-15),
-        QueryInstance(kBox, kCapsule, 3e-6),
+        QueryInstance(kBox, kCapsule, 2e-15),
         QueryInstance(kBox, kConvex, 3e-15),
         QueryInstance(kBox, kCylinder, 6e-6),
         QueryInstance(kBox, kEllipsoid, 9e-6),
         QueryInstance(kBox, kHalfSpace, kThrows),
         QueryInstance(kBox, kSphere, 4e-15),
 
-        QueryInstance(kCapsule, kCapsule, 2e-5),
-        QueryInstance(kCapsule, kConvex, 2e-5),
+        QueryInstance(kCapsule, kCapsule, 3e-15),
+        QueryInstance(kCapsule, kConvex, 2e-15),
         QueryInstance(kCapsule, kCylinder, 1e-5),
         QueryInstance(kCapsule, kEllipsoid, 5e-6),
         QueryInstance(kCapsule, kHalfSpace, kThrows),
@@ -139,12 +158,12 @@ INSTANTIATE_TEST_SUITE_P(
         QueryInstance(kConvex, kHalfSpace, kThrows),
         QueryInstance(kConvex, kSphere, 3e-6),
 
-        QueryInstance(kCylinder, kCylinder, 2e-5),
-        QueryInstance(kCylinder, kEllipsoid, 5e-5),
+        QueryInstance(kCylinder, kCylinder, 8e-7),
+        QueryInstance(kCylinder, kEllipsoid, 5e-7),
         QueryInstance(kCylinder, kHalfSpace, kThrows),
         QueryInstance(kCylinder, kSphere, 5e-15),
 
-        QueryInstance(kEllipsoid, kEllipsoid, 2e-5),
+        QueryInstance(kEllipsoid, kEllipsoid, 8e-7),
         QueryInstance(kEllipsoid, kHalfSpace, kThrows),
         QueryInstance(kEllipsoid, kSphere, 4e-5),
 

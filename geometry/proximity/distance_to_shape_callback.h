@@ -39,7 +39,10 @@ struct CoalSettings {
   coal::GJKConvergenceCriterion gjk_convergence_criterion{
       coal::GJKConvergenceCriterion::Default};
 };
-                       
+
+std::shared_ptr<const coal::CollisionGeometry> MakeCoalBox(
+    const Eigen::Vector3d& size);
+
 /* Supporting data for the shape-to-shape signed distance callback (see
  Callback below). It includes:
 

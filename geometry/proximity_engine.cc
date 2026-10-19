@@ -492,6 +492,13 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
 
   // Removes a non-deformable geometry from this engine.
   void RemoveGeometry(GeometryId id, bool is_dynamic) {
+    if (const auto* object =
+            static_cast<const CollisionObjectd*>(GetCollisionObject(id));
+        object != nullptr &&
+        dynamic_cast<const fcl::Convexd*>(object->collisionGeometry().get()) ==
+            nullptr) {
+      coal_shapes_.erase(object->collisionGeometry().get());
+    }
     if (is_dynamic) {
       // An inactive dynamic geometry lives in inactive_dynamic_tree_, not
       // dynamic_tree_. (Removing a geometry never changes any *other*
@@ -668,6 +675,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
 
   void ImplementGeometry(const Box& box, void* user_data) override {
     auto fcl_box = make_shared<fcl::Boxd>(box.size());
+    coal_shapes_[fcl_box.get()] = shape_distance::MakeCoalBox(box.size());
     TakeShapeOwnership(fcl_box, user_data);
     ProcessHydroelastic(box, user_data);
     ProcessGeometriesForDeformableContact(box, user_data);
@@ -677,6 +685,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     // Note: Using `shared_ptr` because of FCL API requirements.
     auto fcl_capsule =
         make_shared<fcl::Capsuled>(capsule.radius(), capsule.length());
+    coal_shapes_[fcl_capsule.get()] = make_shared<coal::Capsule>(capsule.radius(), capsule.length());
     TakeShapeOwnership(fcl_capsule, user_data);
     ProcessHydroelastic(capsule, user_data);
     ProcessGeometriesForDeformableContact(capsule, user_data);
@@ -696,6 +705,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     // Note: Using `shared_ptr` because of FCL API requirements.
     auto fcl_cylinder =
         make_shared<fcl::Cylinderd>(cylinder.radius(), cylinder.length());
+    coal_shapes_[fcl_cylinder.get()] = make_shared<coal::Cylinder>(cylinder.radius(), cylinder.length());
     TakeShapeOwnership(fcl_cylinder, user_data);
     ProcessHydroelastic(cylinder, user_data);
     ProcessGeometriesForDeformableContact(cylinder, user_data);
@@ -705,6 +715,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     // Note: Using `shared_ptr` because of FCL API requirements.
     auto fcl_ellipsoid = make_shared<fcl::Ellipsoidd>(
         ellipsoid.a(), ellipsoid.b(), ellipsoid.c());
+    coal_shapes_[fcl_ellipsoid.get()] = make_shared<coal::Ellipsoid>(ellipsoid.a(), ellipsoid.b(), ellipsoid.c());
     TakeShapeOwnership(fcl_ellipsoid, user_data);
     ProcessHydroelastic(ellipsoid, user_data);
     ProcessGeometriesForDeformableContact(ellipsoid, user_data);

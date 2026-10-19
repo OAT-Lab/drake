@@ -65,6 +65,26 @@ void DistancePairGeometry<T>::SphereShapeDistance(const fcl::Sphered& sphere_A,
   result_->p_ACa = -sphere_A.radius * (R_AW * shape_B_to_point_Ao.grad_W);
 }
 
+std::shared_ptr<const coal::CollisionGeometry> MakeCoalBox(
+    const Eigen::Vector3d& size) {
+  // coal::Box loses precision under EPA; an 8-vertex coal::Convex does not.
+  const Eigen::Vector3d half = size / 2;
+  auto vertices = std::make_shared<std::vector<coal::Vec3s>>();
+  for (double x : {-1, 1}) {
+    for (double y : {-1, 1}) {
+      for (double z : {-1, 1}) {
+        vertices->push_back(half.cwiseProduct(Eigen::Vector3d{x, y, z}));
+      }
+    }
+  }
+  auto triangles = std::make_shared<std::vector<coal::Triangle>>(
+      std::vector<coal::Triangle>{{0, 4, 5}, {0, 5, 1}, {5, 7, 3}, {5, 3, 1},
+                                  {3, 7, 6}, {3, 6, 2}, {0, 2, 6}, {0, 6, 4},
+                                  {4, 6, 7}, {4, 7, 5}, {1, 3, 2}, {1, 2, 0}});
+  return std::make_shared<coal::Convex<coal::Triangle>>(vertices, 8, triangles,
+                                                        12);
+}
+
 template <>
 void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const math::RigidTransformd& X_WA,
@@ -82,44 +102,22 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   double min_distance{};
   Eigen::Vector3d p_WCa, p_WCb;
 
-  const auto* box_A =
-      dynamic_cast<const fcl::Boxd*>(a.collisionGeometry().get());
-  const auto* box_B =
-      dynamic_cast<const fcl::Boxd*>(b.collisionGeometry().get());
-  const auto* conv_A =
-      dynamic_cast<const fcl::Convexd*>(a.collisionGeometry().get());
-  const auto* conv_B =
-      dynamic_cast<const fcl::Convexd*>(b.collisionGeometry().get());
-
-  const coal::CollisionGeometry* coal_mesh_A = nullptr;
-  const coal::CollisionGeometry* coal_mesh_B = nullptr;
-  if (coal_shapes != nullptr && conv_A != nullptr && conv_B != nullptr) {
-    const auto it_A = coal_shapes->find(conv_A);
-    const auto it_B = coal_shapes->find(conv_B);
+  const coal::CollisionGeometry* coal_A = nullptr;
+  const coal::CollisionGeometry* coal_B = nullptr;
+  if (coal_shapes != nullptr) {
+    const auto it_A = coal_shapes->find(a.collisionGeometry().get());
+    const auto it_B = coal_shapes->find(b.collisionGeometry().get());
     if (it_A != coal_shapes->end() && it_B != coal_shapes->end()) {
-      coal_mesh_A = it_A->second.get();
-      coal_mesh_B = it_B->second.get();
+      coal_A = it_A->second.get();
+      coal_B = it_B->second.get();
     }
   }
 
-  if (coal_mesh_A != nullptr) {
+  if (coal_A != nullptr) {
     const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
     const coal::Transform3s tf_B(X_WB.rotation().matrix(), X_WB.translation());
     coal::DistanceResult coal_result;
-    coal::distance(coal_mesh_A, tf_A, coal_mesh_B, tf_B, coal_request,
-                   coal_result);
-    min_distance = coal_result.min_distance;
-    p_WCa = coal_result.nearest_points[0];
-    p_WCb = coal_result.nearest_points[1];
-  } else if (box_A != nullptr && box_B != nullptr) {
-    coal::Box coal_A(box_A->side);
-    coal::Box coal_B(box_B->side);
-    const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
-    const coal::Transform3s tf_B(X_WB.rotation().matrix(), X_WB.translation());
-
-    coal::DistanceResult coal_result;
-
-    coal::distance(&coal_A, tf_A, &coal_B, tf_B, coal_request, coal_result);
+    coal::distance(coal_A, tf_A, coal_B, tf_B, coal_request, coal_result);
     min_distance = coal_result.min_distance;
     p_WCa = coal_result.nearest_points[0];
     p_WCb = coal_result.nearest_points[1];
