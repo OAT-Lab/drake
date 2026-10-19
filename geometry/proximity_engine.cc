@@ -231,7 +231,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     mesh_distance_boundary_cahe_ = other.mesh_distance_boundary_cahe_;
     convex_hull_cache_ = other.convex_hull_cache_;
     // Coal geometry for each fcl::Convexd, keyed by the fcl geometry pointer.
-    coal_convexes_ = other.coal_convexes_;
+    coal_shapes_ = other.coal_shapes_;
     coal_gjk_options_ = other.coal_gjk_options_;
     geometry_to_hull_key_ = other.geometry_to_hull_key_;
     dynamic_tree_.clear();
@@ -294,7 +294,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     engine->geometries_for_deformable_contact_ =
         this->geometries_for_deformable_contact_;
     engine->mesh_distance_boundary_cahe_ = this->mesh_distance_boundary_cahe_;
-    engine->coal_convexes_ = this->coal_convexes_;
+    engine->coal_shapes_ = this->coal_shapes_;
     engine->geometry_to_hull_key_ = this->geometry_to_hull_key_;
     engine->distance_tolerance_ = this->distance_tolerance_;
     engine->coal_gjk_options_ = this->coal_gjk_options_;
@@ -522,7 +522,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
         auto& scaled_hulls = cache_it->second.scaled_hulls;
         if (auto hull_it = scaled_hulls.find(scale_key);
             hull_it != scaled_hulls.end() && hull_it->second.use_count() == 1) {
-          coal_convexes_.erase(hull_it->second.get());
+          coal_shapes_.erase(hull_it->second.get());
           cache_it->second.scaled_coal_hulls.erase(scale_key);
           scaled_hulls.erase(hull_it);
           if (scaled_hulls.empty()) {
@@ -564,7 +564,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   const CoalGjkOptions& coal_gjk_options() const { return coal_gjk_options_; }
 
   shape_distance::CoalSettings MakeCoalSettings() const {
-    shape_distance::CoalSettings settings{&coal_convexes_};
+    shape_distance::CoalSettings settings{&coal_shapes_};
     switch (coal_gjk_options_.variant) {
       case CoalGjkVariant::kDefault:
         settings.gjk_variant = coal::GJKVariant::DefaultGJK;
@@ -1153,12 +1153,12 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     }
     return n;
   }
-  int coal_convex_entries() const { return ssize(coal_convexes_); }
-    bool has_coal_convex(GeometryId id) const {
+  int coal_shape_entries() const { return ssize(coal_shapes_); }
+    bool has_coal_shape(GeometryId id) const {
     const auto* object =
         static_cast<const CollisionObjectd*>(GetCollisionObject(id));
     return object != nullptr &&
-           coal_convexes_.contains(object->collisionGeometry().get());
+           coal_shapes_.contains(object->collisionGeometry().get());
   }
 
   bool geometry_hull_key_valid(GeometryId id) const {
@@ -1406,7 +1406,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
         static_cast<unsigned int>(entry.coal_faces->size()));
       fcl_convex = make_shared<fcl::Convexd>(std::move(verts_for_fcl),
                                              entry.num_faces, entry.faces);
-      coal_convexes_[fcl_convex.get()] = coal_convex;
+      coal_shapes_[fcl_convex.get()] = coal_convex;
     }
     
 
@@ -1584,7 +1584,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   //     across all scales of the same source file.
   MapStringToConvexHullCache convex_hull_cache_{};
   // Coal geometry for each fcl::Convexd, keyed by the fcl geometry pointer.
-  shape_distance::CoalConvexMap coal_convexes_{};
+  shape_distance::CoalShapeMap coal_shapes_{};
 
   // Reverse map from GeometryId to its convex hull cache key. Populated in
   // ImplementFromConvexHull() for Mesh and Convex geometries; used by
@@ -1905,13 +1905,13 @@ int ProximityEngine<T>::convex_hull_cache_hull_entries() const {
 }
 
 template <typename T>
-int ProximityEngine<T>::coal_convex_entries() const {
-  return impl_->coal_convex_entries();
+int ProximityEngine<T>::coal_shape_entries() const {
+  return impl_->coal_shape_entries();
 }
 
 template <typename T>
-bool ProximityEngine<T>::has_coal_convex(GeometryId id) const {
-  return impl_->has_coal_convex(id);
+bool ProximityEngine<T>::has_coal_shape(GeometryId id) const {
+  return impl_->has_coal_shape(id);
 }
 
 template <typename T>

@@ -73,7 +73,7 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const fcl::DistanceRequestd& request,
                                   SignedDistancePair<double>* pair_data,
                                   const CoalSettings& coal) {
-  const CoalConvexMap* coal_convexes = coal.convexes;
+  const CoalShapeMap* coal_shapes = coal.shapes;
   coal::DistanceRequest coal_request;
   coal_request.gjk_variant = coal.gjk_variant;
   coal_request.gjk_convergence_criterion = coal.gjk_convergence_criterion;
@@ -91,12 +91,12 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   const auto* conv_B =
       dynamic_cast<const fcl::Convexd*>(b.collisionGeometry().get());
 
-  const coal::Convex<coal::Triangle>* coal_mesh_A = nullptr;
-  const coal::Convex<coal::Triangle>* coal_mesh_B = nullptr;
-  if (coal_convexes != nullptr && conv_A != nullptr && conv_B != nullptr) {
-    const auto it_A = coal_convexes->find(conv_A);
-    const auto it_B = coal_convexes->find(conv_B);
-    if (it_A != coal_convexes->end() && it_B != coal_convexes->end()) {
+  const coal::CollisionGeometry* coal_mesh_A = nullptr;
+  const coal::CollisionGeometry* coal_mesh_B = nullptr;
+  if (coal_shapes != nullptr && conv_A != nullptr && conv_B != nullptr) {
+    const auto it_A = coal_shapes->find(conv_A);
+    const auto it_B = coal_shapes->find(conv_B);
+    if (it_A != coal_shapes->end() && it_B != coal_shapes->end()) {
       coal_mesh_A = it_A->second.get();
       coal_mesh_B = it_B->second.get();
     }

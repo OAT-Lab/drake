@@ -29,12 +29,12 @@ namespace shape_distance DRAKE_NO_EXPORT {
 /* Maps an fcl convex geometry to the equivalent Coal geometry, built at
  registration time and sharing the same vertex array. Absent entries simply
  mean the pair falls back to fcl. */
-using CoalConvexMap =
+using CoalShapeMap =
     std::unordered_map<const fcl::CollisionGeometryd*,
-                       std::shared_ptr<coal::Convex<coal::Triangle>>>;
+                       std::shared_ptr<const coal::CollisionGeometry>>;
 
 struct CoalSettings {
-  const CoalConvexMap* convexes{nullptr};
+  const CoalShapeMap* shapes{nullptr};
   coal::GJKVariant gjk_variant{coal::GJKVariant::DefaultGJK};
   coal::GJKConvergenceCriterion gjk_convergence_criterion{
       coal::GJKConvergenceCriterion::Default};
@@ -238,7 +238,7 @@ bool RequiresFallback(const fcl::CollisionObjectd& a,
  @param X_WB            The pose of object `b` expressed in the world frame.
  @param request         The distance request parameters.
  @param result          The structure to capture the computation results in.
- @param coal_convexes   Coal counterparts of the fcl convex geometries, or
+ @param coal_shapes   Coal counterparts of the fcl convex geometries, or
                         null to use fcl exclusively.
  @tparam T Computation scalar type.
  @pre The pair should *not* be (Halfspace, X), unless X is Sphere.  */
