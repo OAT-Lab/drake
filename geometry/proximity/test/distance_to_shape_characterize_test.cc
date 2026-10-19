@@ -59,7 +59,7 @@ class SignedDistanceCallback : public DistanceCallback<T> {
     }
     CallbackData<T> data(collision_filter, X_WGs,
                          std::numeric_limits<double>::infinity(), &results_,
-                         &coal_convexes);
+                         CoalSettings{&coal_convexes});
     data.request.enable_signed_distance = true;
     data.request.gjk_solver_type = fcl::GJKSolverType::GST_LIBCCD;
     /* TODO(#14731) This reflects the fact that ProximityEngine hard
