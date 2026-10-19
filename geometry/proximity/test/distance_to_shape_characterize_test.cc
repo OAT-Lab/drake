@@ -22,6 +22,25 @@ namespace {
 using std::make_unique;
 using std::vector;
 
+std::shared_ptr<coal::Convex<coal::Triangle>> MakeCoalConvex(
+    const fcl::Convexd& convex) {
+  using Index = coal::Triangle::index_type;
+  auto points = std::make_shared<std::vector<coal::Vec3s>>(convex.getVertices());
+  auto triangles = std::make_shared<std::vector<coal::Triangle>>();
+  const std::vector<int>& faces = convex.getFaces();
+  for (size_t i = 0; i < faces.size(); i += faces[i] + 1) {
+    const int num_verts = faces[i];
+    for (int k = 2; k < num_verts; ++k) {
+      triangles->emplace_back(static_cast<Index>(faces[i + 1]),
+                              static_cast<Index>(faces[i + k]),
+                              static_cast<Index>(faces[i + k + 1]));
+    }
+  }
+  return std::make_shared<coal::Convex<coal::Triangle>>(
+      points, static_cast<unsigned>(points->size()), triangles,
+      static_cast<unsigned>(triangles->size()));
+}
+
 /* Implementation of DistanceCallback for signed distance. */
 template <typename T>
 class SignedDistanceCallback : public DistanceCallback<T> {
@@ -30,8 +49,17 @@ class SignedDistanceCallback : public DistanceCallback<T> {
               const CollisionFilter* collision_filter,
               const std::unordered_map<GeometryId, math::RigidTransform<T>>*
                   X_WGs) override {
+    CoalConvexMap coal_convexes;
+    for (const fcl::CollisionObjectd* obj : {obj_A, obj_B}) {
+      const auto* convex =
+          dynamic_cast<const fcl::Convexd*>(obj->collisionGeometry().get());
+      if (convex != nullptr) {
+        coal_convexes[convex] = MakeCoalConvex(*convex);
+      }
+    }
     CallbackData<T> data(collision_filter, X_WGs,
-                         std::numeric_limits<double>::infinity(), &results_);
+                         std::numeric_limits<double>::infinity(), &results_,
+                         &coal_convexes);
     data.request.enable_signed_distance = true;
     data.request.gjk_solver_type = fcl::GJKSolverType::GST_LIBCCD;
     /* TODO(#14731) This reflects the fact that ProximityEngine hard
