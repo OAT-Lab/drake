@@ -124,12 +124,12 @@ class ProximityEngineTester {
     return engine.convex_hull_cache_hull_entries();
   }
 
-  static int coal_convex_entries(const ProximityEngine<double>& engine) {
-    return engine.coal_convex_entries();
+  static int coal_shape_entries(const ProximityEngine<double>& engine) {
+    return engine.coal_shape_entries();
   }
 
-  static bool has_coal_convex(const ProximityEngine<double>& engine, GeometryId id) {
-    return engine.has_coal_convex(id);
+  static bool has_coal_shape(const ProximityEngine<double>& engine, GeometryId id) {
+    return engine.has_coal_shape(id);
   }
 
   // Returns true if the given geometry id is in the reverse map AND its
@@ -905,7 +905,7 @@ TEST_F(ProximityEngineTests, LargeConvexDistanceThroughEngine) {
 
   AddDynamic(sphere_hull);
   const GeometryId id_B = AddDynamic(sphere_hull, Vector3d(5, 0, 0));
-  ASSERT_EQ(Tester::coal_convex_entries(engine_), 1);
+  ASSERT_EQ(Tester::coal_shape_entries(engine_), 1);
 
   for (const double angle : {0.0, 0.3, 1.1}) {
     SCOPED_TRACE(fmt::format("angle = {}", angle));
@@ -919,13 +919,13 @@ TEST_F(ProximityEngineTests, LargeConvexDistanceThroughEngine) {
   }
 }
 
-TEST_F(ProximityEngineTests, CoalConvexSurvivesCopy) {
+TEST_F(ProximityEngineTests, CoalShapesSurviveCopy) {
   const std::string path =
       FindResourceOrThrow("drake/geometry/test/quad_cube.obj");
   const GeometryId id_A = AddDynamic(Convex(path, 1.0));
   const GeometryId id_B = AddDynamic(Convex(path, 1.0), Vector3d(5, 0, 0));
-  ASSERT_TRUE(Tester::has_coal_convex(engine_, id_A));
-  ASSERT_TRUE(Tester::has_coal_convex(engine_, id_B));
+  ASSERT_TRUE(Tester::has_coal_shape(engine_, id_A));
+  ASSERT_TRUE(Tester::has_coal_shape(engine_, id_B));
 
   const ProximityEngine<double> copy_constructed(engine_);
   ProximityEngine<double> copy_assigned;
@@ -934,8 +934,8 @@ TEST_F(ProximityEngineTests, CoalConvexSurvivesCopy) {
   for (const ProximityEngine<double>* engine :
       std::initializer_list<const ProximityEngine<double>*>{
           &copy_constructed, &copy_assigned}) {
-    EXPECT_TRUE(Tester::has_coal_convex(*engine, id_A));
-    EXPECT_TRUE(Tester::has_coal_convex(*engine, id_B));
+    EXPECT_TRUE(Tester::has_coal_shape(*engine, id_A));
+    EXPECT_TRUE(Tester::has_coal_shape(*engine, id_B));
     const auto pairs =
         engine->ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
     ASSERT_EQ(pairs.size(), 1);
@@ -1040,7 +1040,7 @@ TEST_F(ProximityEngineTests, ConvexHullCacheEviction) {
     EXPECT_TRUE(Tester::geometry_hull_reverse_map_consistent(engine_));
     EXPECT_EQ(Tester::convex_hull_cache_file_entries(engine_), expected_files);
     EXPECT_EQ(Tester::convex_hull_cache_hull_entries(engine_), expected_hulls);
-    EXPECT_EQ(Tester::coal_convex_entries(engine_), expected_hulls);
+    EXPECT_EQ(Tester::coal_shape_entries(engine_), expected_hulls);
   };
 
   // Confirm initial conditions.

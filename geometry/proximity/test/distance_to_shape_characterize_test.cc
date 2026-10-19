@@ -49,17 +49,17 @@ class SignedDistanceCallback : public DistanceCallback<T> {
               const CollisionFilter* collision_filter,
               const std::unordered_map<GeometryId, math::RigidTransform<T>>*
                   X_WGs) override {
-    CoalConvexMap coal_convexes;
+    CoalShapeMap coal_shapes;
     for (const fcl::CollisionObjectd* obj : {obj_A, obj_B}) {
       const auto* convex =
           dynamic_cast<const fcl::Convexd*>(obj->collisionGeometry().get());
       if (convex != nullptr) {
-        coal_convexes[convex] = MakeCoalConvex(*convex);
+        coal_shapes[convex] = MakeCoalConvex(*convex);
       }
     }
     CallbackData<T> data(collision_filter, X_WGs,
                          std::numeric_limits<double>::infinity(), &results_,
-                         CoalSettings{&coal_convexes});
+                         CoalSettings{&coal_shapes});
     data.request.enable_signed_distance = true;
     data.request.gjk_solver_type = fcl::GJKSolverType::GST_LIBCCD;
     /* TODO(#14731) This reflects the fact that ProximityEngine hard
