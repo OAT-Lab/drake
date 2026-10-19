@@ -977,6 +977,18 @@ TEST_F(ProximityEngineTests, CoalGjkOptionsThroughEngine) {
   }
 }
 
+TEST_F(ProximityEngineTests, CoalUsesEngineDistanceTolerance) {
+  const Convex sphere_hull(MakeUvSpherePoints(), "uv_sphere");
+  AddDynamic(sphere_hull);
+  AddDynamic(sphere_hull, Vector3d(5, 0, 0));
+
+  engine_.set_distance_tolerance(1e-4);
+  const auto pairs =
+      engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+  ASSERT_EQ(pairs.size(), 1);
+  EXPECT_NEAR(pairs[0].distance, 3.0, 1e-3);
+}
+
 // Tests that the convex hull cache is correctly evicted when geometries are
 // removed. Exercises three eviction cases in sequence using the same initial
 // population, plus a running invariant check on the reverse map.
