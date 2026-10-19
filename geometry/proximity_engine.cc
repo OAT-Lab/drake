@@ -232,6 +232,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     convex_hull_cache_ = other.convex_hull_cache_;
     // Coal geometry for each fcl::Convexd, keyed by the fcl geometry pointer.
     coal_convexes_ = other.coal_convexes_;
+    coal_gjk_options_ = other.coal_gjk_options_;
     geometry_to_hull_key_ = other.geometry_to_hull_key_;
     dynamic_tree_.clear();
     dynamic_objects_.clear();
@@ -296,6 +297,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     engine->coal_convexes_ = this->coal_convexes_;
     engine->geometry_to_hull_key_ = this->geometry_to_hull_key_;
     engine->distance_tolerance_ = this->distance_tolerance_;
+    engine->coal_gjk_options_ = this->coal_gjk_options_;
 
     return engine;
   }
@@ -555,6 +557,42 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
 
   double distance_tolerance() const { return distance_tolerance_; }
 
+  void set_coal_gjk_options(const CoalGjkOptions& options) {
+    coal_gjk_options_ = options;
+  }
+
+  const CoalGjkOptions& coal_gjk_options() const { return coal_gjk_options_; }
+
+  shape_distance::CoalSettings MakeCoalSettings() const {
+    shape_distance::CoalSettings settings{&coal_convexes_};
+    switch (coal_gjk_options_.variant) {
+      case CoalGjkVariant::kDefault:
+        settings.gjk_variant = coal::GJKVariant::DefaultGJK;
+        break;
+      case CoalGjkVariant::kPolyak:
+        settings.gjk_variant = coal::GJKVariant::PolyakAcceleration;
+        break;
+      case CoalGjkVariant::kNesterov:
+        settings.gjk_variant = coal::GJKVariant::NesterovAcceleration;
+        break;
+    }
+    switch (coal_gjk_options_.criterion) {
+      case CoalGjkConvergenceCriterion::kDefault:
+        settings.gjk_convergence_criterion =
+            coal::GJKConvergenceCriterion::Default;
+        break;
+      case CoalGjkConvergenceCriterion::kDualityGap:
+        settings.gjk_convergence_criterion =
+            coal::GJKConvergenceCriterion::DualityGap;
+        break;
+      case CoalGjkConvergenceCriterion::kHybrid:
+        settings.gjk_convergence_criterion =
+            coal::GJKConvergenceCriterion::Hybrid;
+        break;
+    }
+    return settings;
+  }
+
   // TODO(SeanCurtis-TRI): I could do things here differently a number of ways:
   //  1. I could make this move semantics (or swap semantics).
   //  2. I could simply have a method that returns a mutable reference to such
@@ -704,7 +742,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     // All these quantities are aliased in the callback data.
     shape_distance::CallbackData<T> data{&collision_filter_, &X_WGs,
                                          max_distance, &witness_pairs, 
-                                         shape_distance::CoalSettings{&coal_convexes_}};
+                                         MakeCoalSettings()};
     data.request.enable_nearest_points = true;
     data.request.enable_signed_distance = true;
     data.request.gjk_solver_type = fcl::GJKSolverType::GST_LIBCCD;
@@ -748,7 +786,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     double max_distance = std::numeric_limits<double>::infinity();
     // All these quantities are aliased in the callback data.
     shape_distance::CallbackData<T> data{nullptr, &X_WGs, max_distance,
-                                         &witness_pairs, shape_distance::CoalSettings{&coal_convexes_}};
+                                         &witness_pairs, MakeCoalSettings()};
     data.request.enable_nearest_points = true;
     data.request.enable_signed_distance = true;
     data.request.gjk_solver_type = fcl::GJKSolverType::GST_LIBCCD;
@@ -1518,6 +1556,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   // The tolerance that determines when the iterative process would terminate.
   // @see ProximityEngine::set_distance_tolerance() for more details.
   double distance_tolerance_{1E-6};
+  
+  CoalGjkOptions coal_gjk_options_{};
 
   // All of the hydroelastic representations of supported geometries -- this
   // can get quite large based on mesh resolution.
@@ -1665,6 +1705,16 @@ void ProximityEngine<T>::set_distance_tolerance(double tol) {
 template <typename T>
 double ProximityEngine<T>::distance_tolerance() const {
   return impl_->distance_tolerance();
+}
+
+template <typename T>
+void ProximityEngine<T>::set_coal_gjk_options(const CoalGjkOptions& options) {
+  impl_->set_coal_gjk_options(options);
+}
+
+template <typename T>
+const CoalGjkOptions& ProximityEngine<T>::coal_gjk_options() const {
+  return impl_->coal_gjk_options();
 }
 
 template <typename T>
