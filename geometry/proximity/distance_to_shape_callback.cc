@@ -77,6 +77,8 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   coal::DistanceRequest coal_request;
   coal_request.gjk_variant = coal.gjk_variant;
   coal_request.gjk_convergence_criterion = coal.gjk_convergence_criterion;
+  coal_request.gjk_tolerance = request.distance_tolerance;
+  coal_request.epa_tolerance = request.distance_tolerance;
   double min_distance{};
   Eigen::Vector3d p_WCa, p_WCb;
 
