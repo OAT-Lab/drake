@@ -880,7 +880,8 @@ TEST_F(ProximityEngineTests, ConvexConvexDistanceThroughEngine) {
   ASSERT_EQ(pairs.size(), 1);
   EXPECT_NEAR(pairs[0].distance, -0.5, 1e-6);
 }
-TEST_F(ProximityEngineTests, LargeConvexDistanceThroughEngine) {
+
+Eigen::Matrix3Xd MakeUvSpherePoints() {
   const int num_rings = 7;
   const int num_segments = 16;
   Eigen::Matrix3Xd points(3, num_rings * num_segments + 2);
@@ -896,7 +897,11 @@ TEST_F(ProximityEngineTests, LargeConvexDistanceThroughEngine) {
                                  std::sin(phi) * std::sin(theta));
     }
   }
-  const Convex sphere_hull(points, "uv_sphere");
+  return points;
+}
+
+TEST_F(ProximityEngineTests, LargeConvexDistanceThroughEngine) {
+  const Convex sphere_hull(MakeUvSpherePoints(), "uv_sphere");
 
   AddDynamic(sphere_hull);
   const GeometryId id_B = AddDynamic(sphere_hull, Vector3d(5, 0, 0));
@@ -935,6 +940,40 @@ TEST_F(ProximityEngineTests, CoalConvexSurvivesCopy) {
         engine->ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
     ASSERT_EQ(pairs.size(), 1);
     EXPECT_NEAR(pairs[0].distance, 3.0, 1e-6);
+  }
+}
+
+TEST_F(ProximityEngineTests, CoalGjkOptionsThroughEngine) {
+  const Convex sphere_hull(MakeUvSpherePoints(), "uv_sphere");
+  AddDynamic(sphere_hull);
+  const GeometryId id_B = AddDynamic(sphere_hull, Vector3d(5, 0, 0));
+  X_WGs_.at(id_B) = RigidTransformd(math::RotationMatrixd::MakeXRotation(0.3),
+                                    Vector3d(5, 0, 0));
+  engine_.UpdateWorldPoses(X_WGs_);
+
+  EXPECT_EQ(engine_.coal_gjk_options().variant, CoalGjkVariant::kDefault);
+  EXPECT_EQ(engine_.coal_gjk_options().criterion,
+            CoalGjkConvergenceCriterion::kDefault);
+
+  for (const auto variant : {CoalGjkVariant::kDefault, CoalGjkVariant::kPolyak,
+                             CoalGjkVariant::kNesterov}) {
+    for (const auto criterion : {CoalGjkConvergenceCriterion::kDefault,
+                                 CoalGjkConvergenceCriterion::kDualityGap,
+                                 CoalGjkConvergenceCriterion::kHybrid}) {
+      SCOPED_TRACE(fmt::format("variant {}, criterion {}",
+                               static_cast<int>(variant),
+                               static_cast<int>(criterion)));
+      engine_.set_coal_gjk_options({.variant = variant, .criterion = criterion});
+
+      const auto pairs =
+          engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+      ASSERT_EQ(pairs.size(), 1);
+      EXPECT_NEAR(pairs[0].distance, 3.0, 1e-6);
+
+      const ProximityEngine<double> copy(engine_);
+      EXPECT_EQ(copy.coal_gjk_options().variant, variant);
+      EXPECT_EQ(copy.coal_gjk_options().criterion, criterion);
+    }
   }
 }
 
