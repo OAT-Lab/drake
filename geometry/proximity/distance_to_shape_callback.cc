@@ -72,7 +72,11 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const math::RigidTransformd& X_WB,
                                   const fcl::DistanceRequestd& request,
                                   SignedDistancePair<double>* pair_data,
-                                  const CoalConvexMap* coal_convexes) {
+                                  const CoalSettings& coal) {
+  const CoalConvexMap* coal_convexes = coal.convexes;
+  coal::DistanceRequest coal_request;
+  coal_request.gjk_variant = coal.gjk_variant;
+  coal_request.gjk_convergence_criterion = coal.gjk_convergence_criterion;
   double min_distance{};
   Eigen::Vector3d p_WCa, p_WCb;
 
@@ -99,7 +103,6 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   if (coal_mesh_A != nullptr) {
     const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
     const coal::Transform3s tf_B(X_WB.rotation().matrix(), X_WB.translation());
-    coal::DistanceRequest coal_request;
     coal::DistanceResult coal_result;
     coal::distance(coal_mesh_A, tf_A, coal_mesh_B, tf_B, coal_request,
                    coal_result);
@@ -111,8 +114,6 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
     coal::Box coal_B(box_B->side);
     const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
     const coal::Transform3s tf_B(X_WB.rotation().matrix(), X_WB.translation());
-
-    coal::DistanceRequest coal_request;
 
     coal::DistanceResult coal_result;
 
@@ -178,11 +179,11 @@ void ComputeNarrowPhaseDistance(const fcl::CollisionObjectd& a,
                                 const math::RigidTransform<T>& X_WB,
                                 const fcl::DistanceRequestd& request,
                                 SignedDistancePair<T>* result,
-                                const CoalConvexMap* coal_convexes) {
+                                const CoalSettings& coal) {
   DRAKE_DEMAND(result != nullptr);
 
   if (RequiresFallback(a, b)) {
-    CalcDistanceFallback<T>(a, X_WA, b, X_WB, request, result, coal_convexes);
+    CalcDistanceFallback<T>(a, X_WA, b, X_WB, request, result, coal);
     return;
   }
 
@@ -323,7 +324,7 @@ bool Callback(fcl::CollisionObjectd* object_A_ptr,
       ComputeNarrowPhaseDistance(fcl_object_A, data.X_WGs.at(id_A),
                                  fcl_object_B, data.X_WGs.at(id_B),
                                  data.request, &signed_pair,
-                                 data.coal_convexes);
+                                 data.coal);
       if (ExtractDoubleOrThrow(signed_pair.distance) <= data.max_distance) {
         data.nearest_pairs.emplace_back(std::move(signed_pair));
       }

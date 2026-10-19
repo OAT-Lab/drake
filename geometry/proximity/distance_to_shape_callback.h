@@ -32,6 +32,13 @@ namespace shape_distance DRAKE_NO_EXPORT {
 using CoalConvexMap =
     std::unordered_map<const fcl::CollisionGeometryd*,
                        std::shared_ptr<coal::Convex<coal::Triangle>>>;
+
+struct CoalSettings {
+  const CoalConvexMap* convexes{nullptr};
+  coal::GJKVariant gjk_variant{coal::GJKVariant::DefaultGJK};
+  coal::GJKConvergenceCriterion gjk_convergence_criterion{
+      coal::GJKConvergenceCriterion::Default};
+};
                        
 /* Supporting data for the shape-to-shape signed distance callback (see
  Callback below). It includes:
@@ -62,12 +69,12 @@ struct CallbackData {
       const std::unordered_map<GeometryId, math::RigidTransform<T>>* X_WGs_in,
       double max_distance_in,
       std::vector<SignedDistancePair<T>>* nearest_pairs_in,
-      const CoalConvexMap* coal_convexes_in = nullptr)
+      const CoalSettings& coal_in = {})
       : collision_filter(collision_filter_in),
         X_WGs(*X_WGs_in),
         max_distance(max_distance_in),
         nearest_pairs(*nearest_pairs_in),
-        coal_convexes(coal_convexes_in) {
+        coal(coal_in) {
     DRAKE_DEMAND(X_WGs_in != nullptr);
     DRAKE_DEMAND(nearest_pairs_in != nullptr);
   }
@@ -86,8 +93,8 @@ struct CallbackData {
 
   /* The results of the distance query.  */
   std::vector<SignedDistancePair<T>>& nearest_pairs{};
-  /* Coal counterparts of the fcl convex geometries, or null. Aliased. */
-  const CoalConvexMap* coal_convexes{};
+  /* Coal geometry (aliased) and GJK settings. */
+  CoalSettings coal;
 };
 
 /* A functor to support ComputeNarrowPhaseDistance(). It computes the signed
@@ -193,7 +200,7 @@ void CalcDistanceFallback(const fcl::CollisionObjectd& a,
                           const math::RigidTransform<T>&,
                           const fcl::DistanceRequestd&,
                           SignedDistancePair<T>* /* pair_data */,
-                          const CoalConvexMap* = nullptr) {
+                          const CoalSettings& coal = {}) {
   // By default, there is no fallback. For every scalar type for which one
   // actually exists, it should be specialized below.
   throw std::logic_error(fmt::format(
@@ -213,7 +220,7 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const math::RigidTransformd& X_WB,
                                   const fcl::DistanceRequestd& request,
                                   SignedDistancePair<double>* pair_data,
-                                  const CoalConvexMap* coal_convexes);
+                                  const CoalSettings& coal);
 
 //@}
 
@@ -242,7 +249,7 @@ void ComputeNarrowPhaseDistance(const fcl::CollisionObjectd& a,
                                 const math::RigidTransform<T>& X_WB,
                                 const fcl::DistanceRequestd& request,
                                 SignedDistancePair<T>* result,
-                                const CoalConvexMap* coal_convexes = nullptr);
+                                const CoalSettings& coal = {});
 
 // TODO(SeanCurtis-TRI): Replace this clunky mechanism with a new mechanism
 // which does this implicitly via ADL and templates.
