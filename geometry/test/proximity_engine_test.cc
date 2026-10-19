@@ -989,6 +989,38 @@ TEST_F(ProximityEngineTests, CoalUsesEngineDistanceTolerance) {
   EXPECT_NEAR(pairs[0].distance, 3.0, 1e-3);
 }
 
+TEST_F(ProximityEngineTests, CoalPrimitiveShapesThroughEngine) {
+  const std::string path =
+      FindResourceOrThrow("drake/geometry/test/quad_cube.obj");
+  const GeometryId id_box = AddDynamic(Box(2, 2, 2));
+  const GeometryId id_capsule = AddDynamic(Capsule(1, 2), Vector3d(0, 5, 0));
+  const GeometryId id_convex = AddDynamic(Convex(path, 1.0), Vector3d(5, 0, 0));
+  EXPECT_TRUE(Tester::has_coal_shape(engine_, id_box));
+  EXPECT_TRUE(Tester::has_coal_shape(engine_, id_capsule));
+  EXPECT_TRUE(Tester::has_coal_shape(engine_, id_convex));
+  EXPECT_EQ(Tester::coal_shape_entries(engine_), 3);
+
+  const auto pairs =
+      engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+  ASSERT_EQ(pairs.size(), 3);
+  auto distance_between = [&pairs](GeometryId x, GeometryId y) {
+    for (const auto& pair : pairs) {
+      if ((pair.id_A == x && pair.id_B == y) ||
+          (pair.id_A == y && pair.id_B == x)) {
+        return pair.distance;
+      }
+    }
+    return std::numeric_limits<double>::quiet_NaN();
+  };
+  EXPECT_NEAR(distance_between(id_box, id_convex), 3.0, 1e-6);
+  EXPECT_NEAR(distance_between(id_box, id_capsule), 3.0, 1e-6);
+  EXPECT_NEAR(distance_between(id_capsule, id_convex), 4 * std::sqrt(2) - 1,
+              1e-6);
+
+  engine_.RemoveGeometry(id_box, /* is_dynamic= */ true);
+  EXPECT_EQ(Tester::coal_shape_entries(engine_), 2);
+}
+
 // Tests that the convex hull cache is correctly evicted when geometries are
 // removed. Exercises three eviction cases in sequence using the same initial
 // population, plus a running invariant check on the reverse map.
