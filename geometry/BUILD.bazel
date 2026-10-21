@@ -86,6 +86,7 @@ drake_cc_library(
         ":shape_specification",
         "//common:default_scalars",
         "//common:sorted_pair",
+        "//geometry/proximity:coal_geometry",
         "//geometry/proximity:collision_filter",
         "//geometry/proximity:deformable_contact_internal",
         "//geometry/proximity:hydroelastic_internal",

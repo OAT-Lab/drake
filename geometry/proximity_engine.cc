@@ -21,6 +21,7 @@
 #include "drake/common/eigen_types.h"
 #include "drake/common/string_unordered_map.h"
 #include "drake/geometry/geometry_ids.h"
+#include "drake/geometry/proximity/coal_geometry.h"
 #include "drake/geometry/proximity/collisions_exist_callback.h"
 #include "drake/geometry/proximity/deformable_contact_geometries.h"
 #include "drake/geometry/proximity/deformable_contact_internal.h"
@@ -570,8 +571,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
 
   const CoalGjkOptions& coal_gjk_options() const { return coal_gjk_options_; }
 
-  shape_distance::CoalSettings MakeCoalSettings() const {
-    shape_distance::CoalSettings settings{&coal_shapes_};
+  CoalSettings MakeCoalSettings() const {
+    CoalSettings settings{&coal_shapes_};
     switch (coal_gjk_options_.variant) {
       case CoalGjkVariant::kDefault:
         settings.gjk_variant = coal::GJKVariant::DefaultGJK;
@@ -675,7 +676,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
 
   void ImplementGeometry(const Box& box, void* user_data) override {
     auto fcl_box = make_shared<fcl::Boxd>(box.size());
-    coal_shapes_[fcl_box.get()] = shape_distance::MakeCoalBox(box.size());
+    coal_shapes_[fcl_box.get()] = MakeCoalBox(box.size());
     TakeShapeOwnership(fcl_box, user_data);
     ProcessHydroelastic(box, user_data);
     ProcessGeometriesForDeformableContact(box, user_data);
@@ -1595,7 +1596,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   //     across all scales of the same source file.
   MapStringToConvexHullCache convex_hull_cache_{};
   // Coal geometry for each fcl::Convexd, keyed by the fcl geometry pointer.
-  shape_distance::CoalShapeMap coal_shapes_{};
+  CoalShapeMap coal_shapes_{};
 
   // Reverse map from GeometryId to its convex hull cache key. Populated in
   // ImplementFromConvexHull() for Mesh and Convex geometries; used by
