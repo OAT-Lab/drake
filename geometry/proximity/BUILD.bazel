@@ -181,6 +181,22 @@ drake_cc_library(
 )
 
 drake_cc_library(
+    name = "coal_geometry",
+    srcs = ["coal_geometry.cc"],
+    hdrs = ["coal_geometry.h"],
+    internal = True,
+    visibility = [
+        "//geometry:__pkg__",
+    ],
+    deps = [
+        "//common:drake_export",
+        "//common:essential",
+        "@coal_internal//:coal",
+        "@fcl_internal//:fcl",
+    ],
+)
+
+drake_cc_library(
     name = "collision_filter",
     srcs = ["collision_filter.cc"],
     hdrs = ["collision_filter.h"],
@@ -343,6 +359,7 @@ drake_cc_library(
         "//geometry:__pkg__",
     ],
     deps = [
+        ":coal_geometry",
         ":collision_filter",
         ":distance_to_point_callback",
         ":distance_to_shape_touching",

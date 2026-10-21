@@ -12,6 +12,7 @@
 #include "drake/common/eigen_types.h"
 #include "drake/common/nice_type_name.h"
 #include "drake/geometry/geometry_ids.h"
+#include "drake/geometry/proximity/coal_geometry.h"
 #include "drake/geometry/proximity/collision_filter.h"
 #include "drake/geometry/proximity/proximity_utilities.h"
 #include "drake/geometry/query_results/signed_distance_pair.h"
@@ -25,23 +26,6 @@ namespace drake {
 namespace geometry {
 namespace internal {
 namespace shape_distance DRAKE_NO_EXPORT {
-
-/* Maps an fcl convex geometry to the equivalent Coal geometry, built at
- registration time and sharing the same vertex array. Absent entries simply
- mean the pair falls back to fcl. */
-using CoalShapeMap =
-    std::unordered_map<const fcl::CollisionGeometryd*,
-                       std::shared_ptr<const coal::CollisionGeometry>>;
-
-struct CoalSettings {
-  const CoalShapeMap* shapes{nullptr};
-  coal::GJKVariant gjk_variant{coal::GJKVariant::DefaultGJK};
-  coal::GJKConvergenceCriterion gjk_convergence_criterion{
-      coal::GJKConvergenceCriterion::Default};
-};
-
-std::shared_ptr<const coal::CollisionGeometry> MakeCoalBox(
-    const Eigen::Vector3d& size);
 
 /* Supporting data for the shape-to-shape signed distance callback (see
  Callback below). It includes:
