@@ -17,6 +17,62 @@ namespace drake {
 namespace geometry {
 namespace internal {
 
+namespace {
+
+std::shared_ptr<coal::Convex<coal::Triangle>> MakeCoalConvex(
+    const fcl::Convexd& convex) {
+  using Index = coal::Triangle::index_type;
+  auto points = std::make_shared<std::vector<coal::Vec3s>>(convex.getVertices());
+  auto triangles = std::make_shared<std::vector<coal::Triangle>>();
+  const std::vector<int>& faces = convex.getFaces();
+  for (size_t i = 0; i < faces.size(); i += faces[i] + 1) {
+    const int num_verts = faces[i];
+    for (int k = 2; k < num_verts; ++k) {
+      triangles->emplace_back(static_cast<Index>(faces[i + 1]),
+                              static_cast<Index>(faces[i + k]),
+                              static_cast<Index>(faces[i + k + 1]));
+    }
+  }
+  return std::make_shared<coal::Convex<coal::Triangle>>(
+      points, static_cast<unsigned>(points->size()), triangles,
+      static_cast<unsigned>(triangles->size()));
+}
+
+} // namespace
+
+std::shared_ptr<const coal::CollisionGeometry> MakeCoalShape(
+    const fcl::CollisionGeometryd& geometry) {
+  if (const auto* box = dynamic_cast<const fcl::Boxd*>(&geometry)) {
+    return MakeCoalBox(box->side);
+  }
+  if (const auto* capsule = dynamic_cast<const fcl::Capsuled*>(&geometry)) {
+    return std::make_shared<coal::Capsule>(capsule->radius, capsule->lz);
+  }
+  if (const auto* cylinder = dynamic_cast<const fcl::Cylinderd*>(&geometry)) {
+    return std::make_shared<coal::Cylinder>(cylinder->radius, cylinder->lz);
+  }
+  if (const auto* ellipsoid = dynamic_cast<const fcl::Ellipsoidd*>(&geometry)) {
+    return std::make_shared<coal::Ellipsoid>(ellipsoid->radii);
+  }
+  if (const auto* convex = dynamic_cast<const fcl::Convexd*>(&geometry)) {
+    return MakeCoalConvex(*convex);
+  }
+  return nullptr;
+}
+
+CoalShapeMap MakeCoalShapeMap(const fcl::CollisionObjectd& a,
+                              const fcl::CollisionObjectd& b) {
+  CoalShapeMap shapes;
+  for (const fcl::CollisionObjectd* obj : {&a, &b}) {
+    const fcl::CollisionGeometryd* geometry = obj->collisionGeometry().get();
+    if (auto shape = MakeCoalShape(*geometry)) {
+      shapes[geometry] = std::move(shape);
+    }
+  }
+  return shapes;
+}
+
+
 using Eigen::Vector3d;
 using math::RigidTransform;
 using std::vector;

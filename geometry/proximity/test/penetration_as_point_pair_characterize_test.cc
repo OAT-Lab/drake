@@ -33,7 +33,9 @@ class PenetrationCallback : public DistanceCallback<T> {
               const CollisionFilter* collision_filter,
               const std::unordered_map<GeometryId, math::RigidTransform<T>>*
                   X_WGs) override {
-    CallbackData<T> data(collision_filter, X_WGs, &results_);
+    const CoalShapeMap coal_shapes = MakeCoalShapeMap(*obj_A, *obj_B);
+    CallbackData<T> data(collision_filter, X_WGs, &results_,
+                         CoalSettings{&coal_shapes});
     return Callback<T>(obj_A, obj_B, &data);
   }
 
@@ -73,32 +75,32 @@ INSTANTIATE_TEST_SUITE_P(
     PenetrationAsPointPair, DoubleTest,
     testing::Values(
         QueryInstance(kBox, kBox, 2e-15),
-        QueryInstance(kBox, kCapsule, 3e-5),
+        QueryInstance(kBox, kCapsule, 2e-15),
         QueryInstance(kBox, kConvex, 2e-15),
-        QueryInstance(kBox, kCylinder, 1e-3),
-        QueryInstance(kBox, kEllipsoid, 4e-4),
+        QueryInstance(kBox, kCylinder, 9e-7),
+        QueryInstance(kBox, kEllipsoid, 9e-7),
         QueryInstance(kBox, kHalfSpace, 6e-15),
         QueryInstance(kBox, kSphere, 4e-15),
 
-        QueryInstance(kCapsule, kCapsule, 2e-5),
-        QueryInstance(kCapsule, kConvex, 3e-5),
-        QueryInstance(kCapsule, kCylinder, 4e-5),
-        QueryInstance(kCapsule, kEllipsoid, 2e-4),
+        QueryInstance(kCapsule, kCapsule, 2e-15),
+        QueryInstance(kCapsule, kConvex, 2e-15),
+        QueryInstance(kCapsule, kCylinder, 2e-12),
+        QueryInstance(kCapsule, kEllipsoid, 1e-12),
         QueryInstance(kCapsule, kHalfSpace, 4e-15),
         QueryInstance(kCapsule, kSphere, 5e-15),
 
         QueryInstance(kConvex, kConvex, 2e-15),
-        QueryInstance(kConvex, kCylinder, 1e-3),
-        QueryInstance(kConvex, kEllipsoid, 4e-4),
+        QueryInstance(kConvex, kCylinder, 9e-7),
+        QueryInstance(kConvex, kEllipsoid, 9e-7),
         QueryInstance(kConvex, kHalfSpace, 3e-15),
         QueryInstance(kConvex, kSphere, 3e-5),
 
-        QueryInstance(kCylinder, kCylinder, 2e-3),
-        QueryInstance(kCylinder, kEllipsoid, 2e-3),
+        QueryInstance(kCylinder, kCylinder, 8e-7),
+        QueryInstance(kCylinder, kEllipsoid, 5e-7),
         QueryInstance(kCylinder, kHalfSpace, 4e-15),
         QueryInstance(kCylinder, kSphere, 5e-15),
 
-        QueryInstance(kEllipsoid, kEllipsoid, 5e-4),
+        QueryInstance(kEllipsoid, kEllipsoid, 7e-7),
         QueryInstance(kEllipsoid, kHalfSpace, 3e-15),
         QueryInstance(kEllipsoid, kSphere, 2e-4),
 
