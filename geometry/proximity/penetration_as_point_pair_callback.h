@@ -7,6 +7,7 @@
 #include <fcl/fcl.h>
 
 #include "drake/common/drake_export.h"
+#include "drake/geometry/proximity/coal_geometry.h"
 #include "drake/geometry/proximity/collision_filter.h"
 #include "drake/geometry/query_results/penetration_as_point_pair.h"
 #include "drake/math/rigid_transform.h"
@@ -29,10 +30,12 @@ struct CallbackData {
   CallbackData(
       const CollisionFilter* collision_filter_in,
       const std::unordered_map<GeometryId, math::RigidTransform<T>>* X_WGs_in,
-      std::vector<PenetrationAsPointPair<T>>* point_pairs_in)
+      std::vector<PenetrationAsPointPair<T>>* point_pairs_in,
+      const CoalSettings& coal_in = {})
       : collision_filter(*collision_filter_in),
         X_WGs(*X_WGs_in),
-        point_pairs(*point_pairs_in) {
+        point_pairs(*point_pairs_in),
+        coal(coal_in) {
     DRAKE_DEMAND(collision_filter_in != nullptr);
     DRAKE_DEMAND(X_WGs_in != nullptr);
     DRAKE_DEMAND(point_pairs_in != nullptr);
@@ -58,6 +61,9 @@ struct CallbackData {
 
   /* The results of the collision query.  */
   std::vector<PenetrationAsPointPair<T>>& point_pairs;
+
+  /* Coal geometry (aliased) and GJK settings. */
+  CoalSettings coal;
 };
 
 /* Callback function for FCL's collide() function for retrieving a *single*

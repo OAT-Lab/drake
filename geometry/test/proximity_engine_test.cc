@@ -1032,6 +1032,33 @@ TEST_F(ProximityEngineTests, CoalCollisionCheckThroughEngine) {
   }
 }
 
+TEST_F(ProximityEngineTests, CoalPenetrationThroughEngine) {
+  const GeometryId id_box = AddDynamic(Box(2, 2, 2));
+  const GeometryId id_capsule = AddDynamic(Capsule(1, 2), Vector3d(1.5, 0, 0));
+
+  const auto pairs = engine_.ComputePointPairPenetration(X_WGs_);
+  ASSERT_EQ(pairs.size(), 1);
+  const auto& pair = pairs[0];
+  const bool box_is_A = pair.id_A == id_box;
+  EXPECT_EQ(box_is_A ? pair.id_B : pair.id_A, id_capsule);
+
+  EXPECT_NEAR(pair.depth, 0.5, 1e-6);
+  const Vector3d nhat_expected =
+      box_is_A ? Vector3d(-1, 0, 0) : Vector3d(1, 0, 0);
+  EXPECT_TRUE(CompareMatrices(pair.nhat_BA_W, nhat_expected, 1e-6));
+
+  const Vector3d& p_box = box_is_A ? pair.p_WCa : pair.p_WCb;
+  const Vector3d& p_capsule = box_is_A ? pair.p_WCb : pair.p_WCa;
+  EXPECT_NEAR(p_box.x(), 1.0, 1e-6);
+  EXPECT_NEAR(p_capsule.x(), 0.5, 1e-6);
+  EXPECT_NEAR(p_box.y(), 0.0, 1e-6);
+  EXPECT_NEAR(p_capsule.y(), 0.0, 1e-6);
+
+  X_WGs_.at(id_capsule) = RigidTransformd(Vector3d(3, 0, 0));
+  engine_.UpdateWorldPoses(X_WGs_);
+  EXPECT_TRUE(engine_.ComputePointPairPenetration(X_WGs_).empty());
+}
+
 // Tests that the convex hull cache is correctly evicted when geometries are
 // removed. Exercises three eviction cases in sequence using the same initial
 // population, plus a running invariant check on the reverse map.
