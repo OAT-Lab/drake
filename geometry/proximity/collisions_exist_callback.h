@@ -5,6 +5,7 @@
 #include "drake/common/drake_assert.h"
 #include "drake/common/drake_export.h"
 #include "drake/geometry/geometry_ids.h"
+#include "drake/geometry/proximity/coal_geometry.h"
 #include "drake/geometry/proximity/collision_filter.h"
 
 namespace drake {
@@ -23,7 +24,8 @@ struct CallbackData {
    must remain valid at least as long as the CallbackData instance.
 
    @param collision_filter_in     The collision filter system. Aliased.  */
-  explicit CallbackData(const CollisionFilter* collision_filter_in);
+  explicit CallbackData(const CollisionFilter* collision_filter_in,
+                        const CoalSettings& coal_in = {});
 
   /* The collision filter system.  */
   const CollisionFilter& collision_filter;
@@ -33,6 +35,9 @@ struct CallbackData {
 
   /* The result of the collisions exist query.  */
   bool collisions_exist{false};
+
+  /* Coal geometry (aliased) and GJK settings. */
+  CoalSettings coal;
 };
 
 /* The callback function for computing if there is a collision.

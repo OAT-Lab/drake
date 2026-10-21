@@ -217,10 +217,12 @@ drake_cc_library(
         "//geometry:__pkg__",
     ],
     deps = [
+        ":coal_geometry",
         ":collision_filter",
         ":proximity_utilities",
         "//common:drake_export",
         "//geometry:geometry_ids",
+        "@coal_internal//:coal",
         "@fcl_internal//:fcl",
     ],
 )

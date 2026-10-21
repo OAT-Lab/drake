@@ -27,6 +27,21 @@ std::shared_ptr<const coal::CollisionGeometry> MakeCoalBox(
                                                         12);
 }
 
+std::pair<const coal::CollisionGeometry*, const coal::CollisionGeometry*>
+FindCoalShapes(const CoalShapeMap* shapes, const fcl::CollisionObjectd& a,
+               const fcl::CollisionObjectd& b) {
+  if (shapes == nullptr) return {nullptr, nullptr};
+  const auto it_a = shapes->find(a.collisionGeometry().get());
+  const auto it_b = shapes->find(b.collisionGeometry().get());
+  if (it_a == shapes->end() || it_b == shapes->end()) return {nullptr, nullptr};
+  return {it_a->second.get(), it_b->second.get()};
+}
+
+coal::Transform3s ToCoalTransform(const fcl::Transform3d& X) {
+  return coal::Transform3s(Eigen::Matrix3d(X.linear()),
+                           Eigen::Vector3d(X.translation()));
+}
+
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake
