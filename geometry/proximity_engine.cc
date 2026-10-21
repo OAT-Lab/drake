@@ -908,7 +908,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
       const std::unordered_map<GeometryId, RigidTransform<T>>& X_WGs) const {
     std::vector<PenetrationAsPointPair<T>> contacts;
     penetration_as_point_pair::CallbackData data{&collision_filter_, &X_WGs,
-                                                 &contacts};
+                                                 &contacts, MakeCoalSettings()};
 
     // Perform a query of the dynamic objects against themselves.
     dynamic_tree_.collide(&data, penetration_as_point_pair::Callback<T>);
@@ -947,7 +947,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   bool HasCollisions() const {
     // All these quantities are aliased in the callback data.
     has_collisions::CallbackData data{&collision_filter_, MakeCoalSettings()};
-    
+
     // Perform a query of the dynamic objects against themselves.
     dynamic_tree_.collide(&data, has_collisions::Callback);
 
@@ -1010,8 +1010,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     // All these quantities are aliased.
     hydroelastic::ContactCalculator<T> calculator{
         &X_WGs, &hydroelastic_geometries_, representation};
-    penetration_as_point_pair::CallbackData<T> point_data{&collision_filter_,
-                                                          &X_WGs, point_pairs};
+    penetration_as_point_pair::CallbackData<T> point_data{
+        &collision_filter_, &X_WGs, point_pairs, MakeCoalSettings()};
 
     // As a suggestion to future thread parallelizers, make available fully
     // allocated and prepared vectors for results of the parallelizable steps.

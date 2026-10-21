@@ -3,6 +3,8 @@
 #include <limits>
 #include <utility>
 
+#include <coal/collision.h>
+
 #include "drake/common/default_scalars.h"
 #include "drake/common/eigen_types.h"
 #include "drake/common/nice_type_name.h"
@@ -147,7 +149,8 @@ template <typename T>
 void CalcDistanceFallback(const fcl::CollisionObjectd& a,
                           const fcl::CollisionObjectd& b,
                           const fcl::CollisionRequestd&,
-                          PenetrationAsPointPair<T>* /* pair_data */) {
+                          PenetrationAsPointPair<T>* /* pair_data */,
+                          const CoalSettings& /* coal */) {
   // By default, there is no fallback. For every scalar type for which one
   // actually exists, it should be specialized below.
   throw std::logic_error(fmt::format(
@@ -164,8 +167,34 @@ template <>
 void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const fcl::CollisionObjectd& b,
                                   const fcl::CollisionRequestd& request,
-                                  PenetrationAsPointPair<double>* pair_data) {
+                                  PenetrationAsPointPair<double>* pair_data,
+                                  const CoalSettings& coal) {
   DRAKE_DEMAND(pair_data != nullptr);
+    const auto [coal_A, coal_B] = FindCoalShapes(coal.shapes, a, b);
+  if (coal_A != nullptr) {
+    coal::CollisionRequest coal_request;
+    coal_request.enable_contact = true;
+    coal_request.num_max_contacts = 1;
+    coal_request.gjk_tolerance = request.gjk_tolerance;
+    coal_request.distance_upper_bound =
+        coal_request.collision_distance_threshold;
+    coal_request.gjk_variant = coal.gjk_variant;
+    coal_request.gjk_convergence_criterion = coal.gjk_convergence_criterion;
+    coal::CollisionResult coal_result;
+    coal::collide(coal_A, ToCoalTransform(a.getTransform()), coal_B,
+                  ToCoalTransform(b.getTransform()), coal_request, coal_result);
+    if (!coal_result.isCollision()) return;
+    const coal::Contact& contact = coal_result.getContact(0);
+    const double depth = -contact.penetration_depth;
+    if (depth <= std::numeric_limits<double>::epsilon()) return;
+    pair_data->depth = depth;
+    pair_data->nhat_BA_W = -contact.normal;
+    pair_data->p_WCa = contact.nearest_points[0];
+    pair_data->p_WCb = contact.nearest_points[1];
+    pair_data->id_A = EncodedData(a).id();
+    pair_data->id_B = EncodedData(b).id();
+    return;
+  }
   fcl::CollisionResult<double> result;
 
   // Perform nearphase collision detection
@@ -227,7 +256,8 @@ void ComputeNarrowPhasePenetration(const fcl::CollisionObjectd& a,
                                    const fcl::CollisionObjectd& b,
                                    const math::RigidTransform<T>& X_WB,
                                    const fcl::CollisionRequestd& request,
-                                   PenetrationAsPointPair<T>* result) {
+                                   PenetrationAsPointPair<T>* result,
+                                   const CoalSettings& coal) {
   DRAKE_DEMAND(result != nullptr);
   const fcl::CollisionGeometryd* a_geometry = a.collisionGeometry().get();
   const fcl::CollisionGeometryd* b_geometry = b.collisionGeometry().get();
@@ -235,7 +265,7 @@ void ComputeNarrowPhasePenetration(const fcl::CollisionObjectd& a,
   const bool b_is_sphere = b_geometry->getNodeType() == fcl::GEOM_SPHERE;
   const bool no_sphere = !(a_is_sphere || b_is_sphere);
   if (no_sphere) {
-    CalcDistanceFallback<T>(a, b, request, result);
+    CalcDistanceFallback<T>(a, b, request, result, coal);
     return;
   }
   DRAKE_ASSERT(a_is_sphere || b_is_sphere);
@@ -291,7 +321,7 @@ void ComputeNarrowPhasePenetration(const fcl::CollisionObjectd& a,
     case fcl::GEOM_CONVEX:
       // We don't have a closed form solution for these geometries, so we
       // call FCL.
-      CalcDistanceFallback<T>(a, b, request, result);
+    CalcDistanceFallback<T>(a, b, request, result, coal);
       break;
     case fcl::GEOM_PLANE:
     case fcl::BV_AABB:
@@ -437,7 +467,7 @@ std::optional<PenetrationAsPointPair<T>> MaybeMakePointPair(
     PenetrationAsPointPair<T> penetration;
     ComputeNarrowPhasePenetration(*fcl_object_A_ptr, data.X_WGs.at(id_A),
                                   *fcl_object_B_ptr, data.X_WGs.at(id_B),
-                                  data.request, &penetration);
+                                  data.request, &penetration, data.coal);
     if (ExtractDoubleOrThrow(penetration.depth) >= 0) {
       return penetration;
     }

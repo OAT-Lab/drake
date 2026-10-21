@@ -873,6 +873,7 @@ drake_cc_library(
         "//geometry:__pkg__",
     ],
     deps = [
+        ":coal_geometry",
         ":collision_filter",
         ":distance_to_point_callback",
         "//common:default_scalars",
@@ -880,6 +881,7 @@ drake_cc_library(
         "//common:nice_type_name",
         "//geometry/query_results:penetration_as_point_pair",
         "//geometry/query_results:signed_distance_to_point",
+        "@coal_internal//:coal",
         "@fcl_internal//:fcl",
     ],
 )
