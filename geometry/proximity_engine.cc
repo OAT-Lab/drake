@@ -946,8 +946,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
 
   bool HasCollisions() const {
     // All these quantities are aliased in the callback data.
-    has_collisions::CallbackData data{&collision_filter_};
-
+    has_collisions::CallbackData data{&collision_filter_, MakeCoalSettings()};
+    
     // Perform a query of the dynamic objects against themselves.
     dynamic_tree_.collide(&data, has_collisions::Callback);
 

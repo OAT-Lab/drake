@@ -1021,6 +1021,17 @@ TEST_F(ProximityEngineTests, CoalPrimitiveShapesThroughEngine) {
   EXPECT_EQ(Tester::coal_shape_entries(engine_), 2);
 }
 
+TEST_F(ProximityEngineTests, CoalCollisionCheckThroughEngine) {
+  AddDynamic(Box(2, 2, 2));
+  const GeometryId id_capsule = AddDynamic(Capsule(1, 2), Vector3d(5, 0, 0));
+  for (const double gap : {1.0, 1e-5, 1e-9, -1e-9, -1e-5, -0.5}) {
+    SCOPED_TRACE(fmt::format("gap = {}", gap));
+    X_WGs_.at(id_capsule) = RigidTransformd(Vector3d(2 + gap, 0, 0));
+    engine_.UpdateWorldPoses(X_WGs_);
+    EXPECT_EQ(engine_.HasCollisions(), gap < 0);
+  }
+}
+
 // Tests that the convex hull cache is correctly evicted when geometries are
 // removed. Exercises three eviction cases in sequence using the same initial
 // population, plus a running invariant check on the reverse map.

@@ -73,7 +73,6 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const fcl::DistanceRequestd& request,
                                   SignedDistancePair<double>* pair_data,
                                   const CoalSettings& coal) {
-  const CoalShapeMap* coal_shapes = coal.shapes;
   coal::DistanceRequest coal_request;
   coal_request.gjk_variant = coal.gjk_variant;
   coal_request.gjk_convergence_criterion = coal.gjk_convergence_criterion;
@@ -81,18 +80,7 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   coal_request.epa_tolerance = request.distance_tolerance;
   double min_distance{};
   Eigen::Vector3d p_WCa, p_WCb;
-
-  const coal::CollisionGeometry* coal_A = nullptr;
-  const coal::CollisionGeometry* coal_B = nullptr;
-  if (coal_shapes != nullptr) {
-    const auto it_A = coal_shapes->find(a.collisionGeometry().get());
-    const auto it_B = coal_shapes->find(b.collisionGeometry().get());
-    if (it_A != coal_shapes->end() && it_B != coal_shapes->end()) {
-      coal_A = it_A->second.get();
-      coal_B = it_B->second.get();
-    }
-  }
-
+  const auto [coal_A, coal_B] = FindCoalShapes(coal.shapes, a, b);
   if (coal_A != nullptr) {
     const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
     const coal::Transform3s tf_B(X_WB.rotation().matrix(), X_WB.translation());

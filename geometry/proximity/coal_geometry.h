@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <utility>
 
 #include <coal/collision_data.h>
 #include <coal/collision_object.h>
@@ -31,6 +32,12 @@ struct CoalSettings {
 
 std::shared_ptr<const coal::CollisionGeometry> MakeCoalBox(
     const Eigen::Vector3d& size);
+
+std::pair<const coal::CollisionGeometry*, const coal::CollisionGeometry*>
+FindCoalShapes(const CoalShapeMap* shapes, const fcl::CollisionObjectd& a,
+               const fcl::CollisionObjectd& b);
+
+coal::Transform3s ToCoalTransform(const fcl::Transform3d& X);
 
 }  // namespace internal
 }  // namespace geometry
