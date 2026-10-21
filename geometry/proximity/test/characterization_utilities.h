@@ -25,6 +25,7 @@
 #include "drake/common/drake_export.h"
 #include "drake/common/fmt.h"
 #include "drake/common/unused.h"
+#include "drake/geometry/proximity/coal_geometry.h"
 #include "drake/geometry/proximity/collision_filter.h"
 #include "drake/geometry/shape_specification.h"
 #include "drake/math/rigid_transform.h"
@@ -32,6 +33,15 @@
 namespace drake {
 namespace geometry {
 namespace internal {
+
+/* Returns the Coal twin of an fcl shape, built as ProximityEngine builds it, or
+ nullptr for shapes that have no Coal twin (spheres, half spaces). */
+std::shared_ptr<const coal::CollisionGeometry> MakeCoalShape(
+    const fcl::CollisionGeometryd& geometry);
+
+/* Returns a map holding the Coal twins of both objects' shapes. */
+CoalShapeMap MakeCoalShapeMap(const fcl::CollisionObjectd& a,
+                              const fcl::CollisionObjectd& b);
 
 /* The base class defining a self-contained wrapper for distance-related
  callbacks. To test a single callback, this class should be derived and
