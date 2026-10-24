@@ -84,8 +84,8 @@ struct ConvexHullCacheEntry {
   // in-place.
   std::map<std::array<double, 4>, shared_ptr<fcl::Convexd>> scaled_hulls;
   // Coal counterparts, same keys, sharing the same vertex arrays.
-  std::map<std::array<double, 4>,
-           shared_ptr<coal::Convex<coal::Triangle>>> scaled_coal_hulls;
+  std::map<std::array<double, 4>, shared_ptr<coal::Convex<coal::Triangle>>>
+      scaled_coal_hulls;
 };
 
 class MapStringToConvexHullCache
@@ -687,7 +687,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     // Note: Using `shared_ptr` because of FCL API requirements.
     auto fcl_capsule =
         make_shared<fcl::Capsuled>(capsule.radius(), capsule.length());
-    coal_shapes_[fcl_capsule.get()] = make_shared<coal::Capsule>(capsule.radius(), capsule.length());
+    coal_shapes_[fcl_capsule.get()] =
+        make_shared<coal::Capsule>(capsule.radius(), capsule.length());
     TakeShapeOwnership(fcl_capsule, user_data);
     ProcessHydroelastic(capsule, user_data);
     ProcessGeometriesForDeformableContact(capsule, user_data);
@@ -707,7 +708,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     // Note: Using `shared_ptr` because of FCL API requirements.
     auto fcl_cylinder =
         make_shared<fcl::Cylinderd>(cylinder.radius(), cylinder.length());
-    coal_shapes_[fcl_cylinder.get()] = make_shared<coal::Cylinder>(cylinder.radius(), cylinder.length());
+    coal_shapes_[fcl_cylinder.get()] =
+        make_shared<coal::Cylinder>(cylinder.radius(), cylinder.length());
     TakeShapeOwnership(fcl_cylinder, user_data);
     ProcessHydroelastic(cylinder, user_data);
     ProcessGeometriesForDeformableContact(cylinder, user_data);
@@ -717,7 +719,8 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     // Note: Using `shared_ptr` because of FCL API requirements.
     auto fcl_ellipsoid = make_shared<fcl::Ellipsoidd>(
         ellipsoid.a(), ellipsoid.b(), ellipsoid.c());
-    coal_shapes_[fcl_ellipsoid.get()] = make_shared<coal::Ellipsoid>(ellipsoid.a(), ellipsoid.b(), ellipsoid.c());
+    coal_shapes_[fcl_ellipsoid.get()] = make_shared<coal::Ellipsoid>(
+        ellipsoid.a(), ellipsoid.b(), ellipsoid.c());
     TakeShapeOwnership(fcl_ellipsoid, user_data);
     ProcessHydroelastic(ellipsoid, user_data);
     ProcessGeometriesForDeformableContact(ellipsoid, user_data);
@@ -754,7 +757,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     std::vector<SignedDistancePair<T>> witness_pairs;
     // All these quantities are aliased in the callback data.
     shape_distance::CallbackData<T> data{&collision_filter_, &X_WGs,
-                                         max_distance, &witness_pairs, 
+                                         max_distance, &witness_pairs,
                                          MakeCoalSettings()};
     data.request.enable_nearest_points = true;
     data.request.enable_signed_distance = true;
@@ -1167,7 +1170,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     return n;
   }
   int coal_shape_entries() const { return ssize(coal_shapes_); }
-    bool has_coal_shape(GeometryId id) const {
+  bool has_coal_shape(GeometryId id) const {
     const auto* object =
         static_cast<const CollisionObjectd*>(GetCollisionObject(id));
     return object != nullptr &&
@@ -1369,11 +1372,11 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
       entry.unit_vertices = std::move(unit_verts);
       entry.faces = make_shared<std::vector<int>>(hull.face_data());
       entry.num_faces = hull.num_elements();
-      
-      // triangulation of mesh for coal. 
-      // Coal's distance computation only accepts triangular faces, 
-      // so this runs Drake's triangulation and copies the three indices of 
-      // each triangle into a coal::Triangle 
+
+      // triangulation of mesh for coal.
+      // Coal's distance computation only accepts triangular faces,
+      // so this runs Drake's triangulation and copies the three indices of
+      // each triangle into a coal::Triangle
       const TriangleSurfaceMesh<double> tri_mesh =
           MakeTriangleFromPolygonMesh(hull);
       auto coal_tris = make_shared<std::vector<coal::Triangle>>();
@@ -1398,7 +1401,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
     const std::array<double, 4> scale_key{scale[0], scale[1], scale[2], margin};
     shared_ptr<fcl::Convexd>& fcl_convex = entry.scaled_hulls[scale_key];
     shared_ptr<coal::Convex<coal::Triangle>>& coal_convex =
-      entry.scaled_coal_hulls[scale_key];
+        entry.scaled_coal_hulls[scale_key];
     if (fcl_convex == nullptr) {
       // For the unit-scale case (the common case), share the unit_vertices
       // shared_ptr directly rather than allocating and filling a second vector.
@@ -1413,15 +1416,13 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
         }
       }
       coal_convex = make_shared<coal::Convex<coal::Triangle>>(
-        verts_for_fcl,
-        static_cast<unsigned int>(verts_for_fcl->size()),
-        entry.coal_faces,
-        static_cast<unsigned int>(entry.coal_faces->size()));
+          verts_for_fcl, static_cast<unsigned int>(verts_for_fcl->size()),
+          entry.coal_faces,
+          static_cast<unsigned int>(entry.coal_faces->size()));
       fcl_convex = make_shared<fcl::Convexd>(std::move(verts_for_fcl),
                                              entry.num_faces, entry.faces);
       coal_shapes_[fcl_convex.get()] = coal_convex;
     }
-    
 
     // Record the reverse mapping so RemoveGeometry() can evict stale entries.
     geometry_to_hull_key_[static_cast<const ReifyData*>(user_data)->id] = {
@@ -1569,7 +1570,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   // The tolerance that determines when the iterative process would terminate.
   // @see ProximityEngine::set_distance_tolerance() for more details.
   double distance_tolerance_{1E-6};
-  
+
   CoalGjkOptions coal_gjk_options_{};
 
   // All of the hydroelastic representations of supported geometries -- this

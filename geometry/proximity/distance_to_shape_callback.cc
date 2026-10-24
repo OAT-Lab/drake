@@ -290,8 +290,7 @@ bool Callback(fcl::CollisionObjectd* object_A_ptr,
       SignedDistancePair<T> signed_pair;
       ComputeNarrowPhaseDistance(fcl_object_A, data.X_WGs.at(id_A),
                                  fcl_object_B, data.X_WGs.at(id_B),
-                                 data.request, &signed_pair,
-                                 data.coal);
+                                 data.request, &signed_pair, data.coal);
       if (ExtractDoubleOrThrow(signed_pair.distance) <= data.max_distance) {
         data.nearest_pairs.emplace_back(std::move(signed_pair));
       }

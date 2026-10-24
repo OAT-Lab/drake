@@ -6,8 +6,6 @@
 
 #include <fcl/fcl.h>
 
-#include "coal/shape/convex.h"
-
 #include "drake/common/drake_export.h"
 #include "drake/common/eigen_types.h"
 #include "drake/common/nice_type_name.h"

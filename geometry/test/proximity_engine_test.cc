@@ -128,7 +128,8 @@ class ProximityEngineTester {
     return engine.coal_shape_entries();
   }
 
-  static bool has_coal_shape(const ProximityEngine<double>& engine, GeometryId id) {
+  static bool has_coal_shape(const ProximityEngine<double>& engine,
+                             GeometryId id) {
     return engine.has_coal_shape(id);
   }
 
@@ -892,8 +893,7 @@ Eigen::Matrix3Xd MakeUvSpherePoints() {
     const double phi = M_PI * i / (num_rings + 1);
     for (int j = 0; j < num_segments; ++j) {
       const double theta = 2 * M_PI * j / num_segments;
-      points.col(k++) = Vector3d(std::cos(phi),
-                                 std::sin(phi) * std::cos(theta),
+      points.col(k++) = Vector3d(std::cos(phi), std::sin(phi) * std::cos(theta),
                                  std::sin(phi) * std::sin(theta));
     }
   }
@@ -909,8 +909,8 @@ TEST_F(ProximityEngineTests, LargeConvexDistanceThroughEngine) {
 
   for (const double angle : {0.0, 0.3, 1.1}) {
     SCOPED_TRACE(fmt::format("angle = {}", angle));
-    X_WGs_.at(id_B) = RigidTransformd(math::RotationMatrixd::MakeXRotation(angle),
-                                      Vector3d(5, 0, 0));
+    X_WGs_.at(id_B) = RigidTransformd(
+        math::RotationMatrixd::MakeXRotation(angle), Vector3d(5, 0, 0));
     engine_.UpdateWorldPoses(X_WGs_);
     const auto pairs =
         engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
@@ -932,8 +932,8 @@ TEST_F(ProximityEngineTests, CoalShapesSurviveCopy) {
   copy_assigned = engine_;
 
   for (const ProximityEngine<double>* engine :
-      std::initializer_list<const ProximityEngine<double>*>{
-          &copy_constructed, &copy_assigned}) {
+       std::initializer_list<const ProximityEngine<double>*>{&copy_constructed,
+                                                             &copy_assigned}) {
     EXPECT_TRUE(Tester::has_coal_shape(*engine, id_A));
     EXPECT_TRUE(Tester::has_coal_shape(*engine, id_B));
     const auto pairs =
@@ -963,7 +963,8 @@ TEST_F(ProximityEngineTests, CoalGjkOptionsThroughEngine) {
       SCOPED_TRACE(fmt::format("variant {}, criterion {}",
                                static_cast<int>(variant),
                                static_cast<int>(criterion)));
-      engine_.set_coal_gjk_options({.variant = variant, .criterion = criterion});
+      engine_.set_coal_gjk_options(
+          {.variant = variant, .criterion = criterion});
 
       const auto pairs =
           engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);

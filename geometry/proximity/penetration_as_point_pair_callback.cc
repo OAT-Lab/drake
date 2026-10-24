@@ -170,7 +170,7 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   PenetrationAsPointPair<double>* pair_data,
                                   const CoalSettings& coal) {
   DRAKE_DEMAND(pair_data != nullptr);
-    const auto [coal_A, coal_B] = FindCoalShapes(coal.shapes, a, b);
+  const auto [coal_A, coal_B] = FindCoalShapes(coal.shapes, a, b);
   if (coal_A != nullptr) {
     coal::CollisionRequest coal_request;
     coal_request.enable_contact = true;
@@ -321,7 +321,7 @@ void ComputeNarrowPhasePenetration(const fcl::CollisionObjectd& a,
     case fcl::GEOM_CONVEX:
       // We don't have a closed form solution for these geometries, so we
       // call FCL.
-    CalcDistanceFallback<T>(a, b, request, result, coal);
+      CalcDistanceFallback<T>(a, b, request, result, coal);
       break;
     case fcl::GEOM_PLANE:
     case fcl::BV_AABB:
