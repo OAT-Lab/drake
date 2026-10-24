@@ -1,10 +1,11 @@
 #include "drake/geometry/proximity/test/characterization_utilities.h"
 
 #include <algorithm>
-#include <coal/shape/convex.h>
-#include <coal/shape/geometric_shapes.h>
 #include <fstream>
 #include <limits>
+
+#include <coal/shape/convex.h>
+#include <coal/shape/geometric_shapes.h>
 
 #include "drake/common/fmt_eigen.h"
 #include "drake/common/nice_type_name.h"
@@ -24,7 +25,8 @@ namespace {
 std::shared_ptr<coal::Convex<coal::Triangle>> MakeCoalConvex(
     const fcl::Convexd& convex) {
   using Index = coal::Triangle::index_type;
-  auto points = std::make_shared<std::vector<coal::Vec3s>>(convex.getVertices());
+  auto points =
+      std::make_shared<std::vector<coal::Vec3s>>(convex.getVertices());
   auto triangles = std::make_shared<std::vector<coal::Triangle>>();
   const std::vector<int>& faces = convex.getFaces();
   for (size_t i = 0; i < faces.size(); i += faces[i] + 1) {
@@ -40,7 +42,7 @@ std::shared_ptr<coal::Convex<coal::Triangle>> MakeCoalConvex(
       static_cast<unsigned>(triangles->size()));
 }
 
-} // namespace
+}  // namespace
 
 std::shared_ptr<const coal::CollisionGeometry> MakeCoalShape(
     const fcl::CollisionGeometryd& geometry) {
@@ -73,7 +75,6 @@ CoalShapeMap MakeCoalShapeMap(const fcl::CollisionObjectd& a,
   }
   return shapes;
 }
-
 
 using Eigen::Vector3d;
 using math::RigidTransform;

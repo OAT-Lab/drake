@@ -55,7 +55,7 @@ namespace internal {
  -->
 
  @tparam_default_scalar
- 
+
  @internal Historically, this replaces the DrakeCollision::Model class.  */
 
 enum class CoalGjkVariant { kDefault, kPolyak, kNesterov };
@@ -223,7 +223,7 @@ class ProximityEngine {
   void set_coal_gjk_options(const CoalGjkOptions& options);
 
   const CoalGjkOptions& coal_gjk_options() const;
-  
+
   //@}
 
   /* Updates the poses for all active dynamic geometries in the engine.
