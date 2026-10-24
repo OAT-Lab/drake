@@ -50,7 +50,9 @@ struct CallbackData {
    @param X_WGs_in                The T-valued poses. Aliased.
    @param max_distance_in         The maximum distance at which a pair is
                                   reported.
-   @param nearest_pairs_in[out]   The output results. Aliased.  */
+   @param nearest_pairs_in[out]   The output results. Aliased.
+   @param coal_in                 Coal shapes (aliased) and GJK options. The
+                                    default sends every pair to fcl.  */
   CallbackData(
       const CollisionFilter* collision_filter_in,
       const std::unordered_map<GeometryId, math::RigidTransform<T>>* X_WGs_in,
@@ -80,7 +82,9 @@ struct CallbackData {
 
   /* The results of the distance query.  */
   std::vector<SignedDistancePair<T>>& nearest_pairs{};
-  /* Coal geometry (aliased) and GJK settings. */
+
+  /* Coal twins of the fcl shapes (aliased) and GJK options. Pairs without
+   twins for both shapes are computed by fcl using `request`. */
   CoalSettings coal;
 };
 
@@ -225,8 +229,9 @@ bool RequiresFallback(const fcl::CollisionObjectd& a,
  @param X_WB            The pose of object `b` expressed in the world frame.
  @param request         The distance request parameters.
  @param result          The structure to capture the computation results in.
- @param coal_shapes   Coal counterparts of the fcl convex geometries, or
-                        null to use fcl exclusively.
+ @param coal            Coal twins of the fcl shapes (aliased) and GJK
+                        options. Pairs without twins for both shapes are
+                        computed by fcl.
  @tparam T Computation scalar type.
  @pre The pair should *not* be (Halfspace, X), unless X is Sphere.  */
 template <typename T>

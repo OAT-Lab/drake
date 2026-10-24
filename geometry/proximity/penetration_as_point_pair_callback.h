@@ -62,7 +62,8 @@ struct CallbackData {
   /* The results of the collision query.  */
   std::vector<PenetrationAsPointPair<T>>& point_pairs;
 
-  /* Coal geometry (aliased) and GJK settings. */
+  /* Coal twins of the fcl shapes (aliased) and GJK options. Pairs without
+   twins for both shapes are computed by fcl using `request`. */
   CoalSettings coal;
 };
 

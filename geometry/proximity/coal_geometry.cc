@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include <coal/shape/convex.h>
+
 namespace drake {
 namespace geometry {
 namespace internal {

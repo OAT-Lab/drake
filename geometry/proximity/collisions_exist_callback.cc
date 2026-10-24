@@ -1,8 +1,8 @@
 #include "drake/geometry/proximity/collisions_exist_callback.h"
 
-#include "drake/geometry/proximity/proximity_utilities.h"
-
 #include <coal/collision.h>
+
+#include "drake/geometry/proximity/proximity_utilities.h"
 
 namespace drake {
 namespace geometry {
