@@ -23,7 +23,9 @@ struct CallbackData {
    in the class documentation. The parameters are all aliased in the data and
    must remain valid at least as long as the CallbackData instance.
 
-   @param collision_filter_in     The collision filter system. Aliased.  */
+   @param collision_filter_in     The collision filter system. Aliased.
+   @param coal_in                 Coal shapes (aliased) and GJK options. The
+                                    default sends every pair to fcl.  */
   explicit CallbackData(const CollisionFilter* collision_filter_in,
                         const CoalSettings& coal_in = {});
 
@@ -36,7 +38,8 @@ struct CallbackData {
   /* The result of the collisions exist query.  */
   bool collisions_exist{false};
 
-  /* Coal geometry (aliased) and GJK settings. */
+  /* Coal twins of the fcl shapes (aliased) and GJK options. Pairs without
+   twins for both shapes are computed by fcl using `request`. */
   CoalSettings coal;
 };
 

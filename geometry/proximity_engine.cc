@@ -14,6 +14,7 @@
 #include <vector>
 
 #include <coal/shape/convex.h>
+#include <coal/shape/geometric_shapes.h>
 #include <fcl/fcl.h>
 #include <fmt/format.h>
 

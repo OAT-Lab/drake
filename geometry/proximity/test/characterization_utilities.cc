@@ -1,6 +1,8 @@
 #include "drake/geometry/proximity/test/characterization_utilities.h"
 
 #include <algorithm>
+#include <coal/shape/convex.h>
+#include <coal/shape/geometric_shapes.h>
 #include <fstream>
 #include <limits>
 

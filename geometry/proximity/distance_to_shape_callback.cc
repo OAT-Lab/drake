@@ -4,8 +4,7 @@
 #include <limits>
 #include <utility>
 
-#include "coal/distance.h"
-#include "coal/shape/geometric_shapes.h"
+#include <coal/distance.h>
 
 #include "drake/common/default_scalars.h"
 #include "drake/geometry/proximity/distance_to_point_callback.h"
