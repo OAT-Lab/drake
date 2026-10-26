@@ -997,6 +997,26 @@ TEST_F(ProximityEngineTests, CoalDisabledUsesFcl) {
   EXPECT_FALSE(copy.coal_gjk_options().enabled);
 }
 
+TEST_F(ProximityEngineTests, CoalMeshDistanceThroughEngine) {
+  const Mesh mesh(FindResourceOrThrow("drake/geometry/test/<FILE>.obj"));
+  AddDynamic(mesh);
+  const GeometryId id_B = AddDynamic(mesh, Vector3d(5, 0, 0));
+  X_WGs_.at(id_B) = RigidTransformd(math::RotationMatrixd::MakeXRotation(0.3),
+                                    Vector3d(5, 0, 0));
+  engine_.UpdateWorldPoses(X_WGs_);
+
+  const auto coal_pairs =
+      engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+  engine_.set_coal_gjk_options({.enabled = false});
+  const auto fcl_pairs =
+      engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+
+  ASSERT_EQ(coal_pairs.size(), 1);
+  ASSERT_EQ(fcl_pairs.size(), 1);
+  EXPECT_GT(coal_pairs[0].distance, 0.0);
+  EXPECT_NEAR(coal_pairs[0].distance, fcl_pairs[0].distance, 1e-12);
+}
+
 GTEST_TEST(ProximityEngineCoalTests, CoalModeFromEnvironment) {
   setenv("DRAKE_COAL_MODE", "off", 1);
   EXPECT_FALSE(ProximityEngine<double>().coal_gjk_options().enabled);
