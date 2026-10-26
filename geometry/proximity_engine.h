@@ -63,6 +63,7 @@ enum class CoalGjkVariant { kDefault, kPolyak, kNesterov };
 enum class CoalGjkConvergenceCriterion { kDefault, kDualityGap, kHybrid };
 
 struct CoalGjkOptions {
+  bool enabled{true};
   CoalGjkVariant variant{CoalGjkVariant::kDefault};
   CoalGjkConvergenceCriterion criterion{CoalGjkConvergenceCriterion::kDefault};
 };

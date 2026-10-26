@@ -978,6 +978,44 @@ TEST_F(ProximityEngineTests, CoalGjkOptionsThroughEngine) {
   }
 }
 
+TEST_F(ProximityEngineTests, CoalDisabledUsesFcl) {
+  const Convex sphere_hull(MakeUvSpherePoints(), "uv_sphere");
+  AddDynamic(sphere_hull);
+  const GeometryId id_B = AddDynamic(sphere_hull, Vector3d(5, 0, 0));
+  X_WGs_.at(id_B) = RigidTransformd(math::RotationMatrixd::MakeXRotation(0.3),
+                                    Vector3d(5, 0, 0));
+  engine_.UpdateWorldPoses(X_WGs_);
+
+  engine_.set_coal_gjk_options({.enabled = false});
+
+  const auto pairs =
+      engine_.ComputeSignedDistancePairwiseClosestPoints(X_WGs_, 10.0);
+  ASSERT_EQ(pairs.size(), 1);
+  EXPECT_NEAR(pairs[0].distance, 3.0, 1e-6);
+
+  const ProximityEngine<double> copy(engine_);
+  EXPECT_FALSE(copy.coal_gjk_options().enabled);
+}
+
+GTEST_TEST(ProximityEngineCoalTests, CoalModeFromEnvironment) {
+  setenv("DRAKE_COAL_MODE", "off", 1);
+  EXPECT_FALSE(ProximityEngine<double>().coal_gjk_options().enabled);
+
+  setenv("DRAKE_COAL_MODE", "nesterov", 1);
+  {
+    const ProximityEngine<double> engine;
+    EXPECT_TRUE(engine.coal_gjk_options().enabled);
+    EXPECT_EQ(engine.coal_gjk_options().variant, CoalGjkVariant::kNesterov);
+  }
+
+  setenv("DRAKE_COAL_MODE", "nestrov", 1);
+  DRAKE_EXPECT_THROWS_MESSAGE(ProximityEngine<double>(),
+                              ".*DRAKE_COAL_MODE.*nestrov.*");
+
+  unsetenv("DRAKE_COAL_MODE");
+  EXPECT_TRUE(ProximityEngine<double>().coal_gjk_options().enabled);
+}
+
 TEST_F(ProximityEngineTests, CoalUsesEngineDistanceTolerance) {
   const Convex sphere_hull(MakeUvSpherePoints(), "uv_sphere");
   AddDynamic(sphere_hull);
