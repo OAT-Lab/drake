@@ -2,10 +2,13 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <filesystem>
 #include <limits>
 #include <map>
+#include <stdexcept>
 #include <string>
+#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
@@ -54,6 +57,25 @@ using std::vector;
 using symbolic::Expression;
 
 namespace {
+
+CoalGjkOptions CoalGjkOptionsFromEnvironment() {
+  CoalGjkOptions options;
+  const char* env = std::getenv("DRAKE_COAL_MODE");
+  if (env == nullptr) return options;
+  const std::string_view mode(env);
+  if (mode == "off") {
+    options.enabled = false;
+  } else if (mode == "polyak") {
+    options.variant = CoalGjkVariant::kPolyak;
+  } else if (mode == "nesterov") {
+    options.variant = CoalGjkVariant::kNesterov;
+  } else if (mode != "default") {
+    throw std::runtime_error(
+        "DRAKE_COAL_MODE must be off, default, polyak, or nesterov; got '" +
+        std::string(mode) + "'.");
+  }
+  return options;
+}
 
 // Drake compiles FCL using hidden symbol visibility. To avoid visibility
 // complaints from the compiler, we need to use hidden subclasses for any
@@ -573,6 +595,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   const CoalGjkOptions& coal_gjk_options() const { return coal_gjk_options_; }
 
   CoalSettings MakeCoalSettings() const {
+    if (!coal_gjk_options_.enabled) return {};
     CoalSettings settings{&coal_shapes_};
     switch (coal_gjk_options_.variant) {
       case CoalGjkVariant::kDefault:
@@ -1571,7 +1594,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
   // @see ProximityEngine::set_distance_tolerance() for more details.
   double distance_tolerance_{1E-6};
 
-  CoalGjkOptions coal_gjk_options_{};
+  CoalGjkOptions coal_gjk_options_{CoalGjkOptionsFromEnvironment()};
 
   // All of the hydroelastic representations of supported geometries -- this
   // can get quite large based on mesh resolution.
