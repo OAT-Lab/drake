@@ -998,7 +998,7 @@ TEST_F(ProximityEngineTests, CoalDisabledUsesFcl) {
 }
 
 TEST_F(ProximityEngineTests, CoalMeshDistanceThroughEngine) {
-  const Mesh mesh(FindResourceOrThrow("drake/geometry/test/drake/geometry/test/non_convex_mesh.obj"));
+  const Mesh mesh(FindResourceOrThrow("drake/geometry/test/non_convex_mesh.obj"));
   AddDynamic(mesh);
   const GeometryId id_B = AddDynamic(mesh, Vector3d(5, 0, 0));
   X_WGs_.at(id_B) = RigidTransformd(math::RotationMatrixd::MakeXRotation(0.3),
