@@ -108,6 +108,17 @@ drake_py_experiment_binary(
 )
 
 drake_cc_googlebench_binary(
+    name = "narrowphase_benchmark",
+    srcs = ["narrowphase_benchmark.cc"],
+    deps = [
+        "//geometry:proximity_engine",
+        "//geometry:shape_specification",
+        "//math:geometric_transform",
+    ],
+    add_test_rule = True
+)
+
+drake_cc_googlebench_binary(
     name = "proximity_defaults_benchmark",
     srcs = ["proximity_defaults_benchmark.cc"],
     deps = [

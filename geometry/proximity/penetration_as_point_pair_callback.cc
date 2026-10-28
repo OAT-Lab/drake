@@ -174,6 +174,7 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   if (coal_A != nullptr) {
     coal::CollisionRequest coal_request;
     coal_request.enable_contact = true;
+    coal_request.epa_max_iterations = 10000;
     coal_request.num_max_contacts = 1;
     coal_request.gjk_tolerance = request.gjk_tolerance;
     coal_request.distance_upper_bound =
