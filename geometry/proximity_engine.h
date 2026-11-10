@@ -66,6 +66,7 @@ struct CoalGjkOptions {
   bool enabled{true};
   CoalGjkVariant variant{CoalGjkVariant::kDefault};
   CoalGjkConvergenceCriterion criterion{CoalGjkConvergenceCriterion::kDefault};
+  int gjk_max_iterations{128};
 };
 
 template <typename T>

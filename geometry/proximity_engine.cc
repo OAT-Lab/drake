@@ -622,6 +622,7 @@ class ProximityEngine<T>::Impl : public ShapeReifier {
             coal::GJKConvergenceCriterion::Hybrid;
         break;
     }
+    settings.gjk_max_iterations = coal_gjk_options_.gjk_max_iterations;
     return settings;
   }
 

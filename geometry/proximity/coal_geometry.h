@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
 #include <unordered_map>
 #include <utility>
@@ -28,6 +29,7 @@ struct CoalSettings {
   coal::GJKVariant gjk_variant{coal::GJKVariant::DefaultGJK};
   coal::GJKConvergenceCriterion gjk_convergence_criterion{
       coal::GJKConvergenceCriterion::Default};
+  int gjk_max_iterations{128};
 };
 
 /* Builds a box with full side lengths `size` as an 8-vertex coal::Convex.
@@ -45,6 +47,7 @@ FindCoalShapes(const CoalShapeMap* shapes, const fcl::CollisionObjectd& a,
 /* Converts an fcl pose to a Coal pose. */
 coal::Transform3s ToCoalTransform(const fcl::Transform3d& X);
 
+size_t& LastGjkIterations();
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake

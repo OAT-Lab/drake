@@ -182,12 +182,10 @@ drake_cc_library(
 
 drake_cc_library(
     name = "coal_geometry",
+    visibility = ["//geometry:__subpackages__"],
     srcs = ["coal_geometry.cc"],
     hdrs = ["coal_geometry.h"],
     internal = True,
-    visibility = [
-        "//geometry:__pkg__",
-    ],
     deps = [
         "//common:drake_export",
         "//common:essential",
@@ -359,6 +357,7 @@ drake_cc_library(
     internal = True,
     visibility = [
         "//geometry:__pkg__",
+        "//geometry/benchmarking:__pkg__",
     ],
     deps = [
         ":coal_geometry",
@@ -934,6 +933,7 @@ drake_cc_library(
     internal = True,
     visibility = [
         "//geometry:__pkg__",
+        "//geometry/benchmarking:__pkg__",
         # TODO(jwnimmer-tri) As with **every single file ever** that is named
         # "utilities", here we have too much completely unrelated code shoved
         # into one place with no rhyme nor reason, leading to dependency graph

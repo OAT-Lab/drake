@@ -12,6 +12,7 @@ def fcl_internal_repository(
         build_file = ":package.BUILD.bazel",
         patches = [
             ":patches/thread_safe_collision_object_copy_constructor.patch",
+            ":patches/gjk_iteration_count.patch",
         ],
         mirrors = mirrors,
     )

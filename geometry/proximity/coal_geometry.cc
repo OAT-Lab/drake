@@ -52,6 +52,10 @@ coal::Transform3s ToCoalTransform(const fcl::Transform3d& X) {
                            Eigen::Vector3d(X.translation()));
 }
 
+size_t& LastGjkIterations() {
+  thread_local size_t count = 0;
+  return count;
+}
 }  // namespace internal
 }  // namespace geometry
 }  // namespace drake

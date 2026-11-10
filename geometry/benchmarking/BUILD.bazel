@@ -110,12 +110,18 @@ drake_py_experiment_binary(
 drake_cc_googlebench_binary(
     name = "narrowphase_benchmark",
     srcs = ["narrowphase_benchmark.cc"],
+    add_test_rule = True,
     deps = [
         "//geometry:proximity_engine",
         "//geometry:shape_specification",
+        "//geometry/proximity:coal_geometry",
+        "//geometry/proximity:distance_to_shape_callback",
+        "//geometry/proximity:polygon_to_triangle_mesh",
+        "//geometry/proximity:proximity_utilities",
         "//math:geometric_transform",
+        "@coal_internal//:coal",
+        "@fcl_internal//:fcl",
     ],
-    add_test_rule = True
 )
 
 drake_cc_googlebench_binary(

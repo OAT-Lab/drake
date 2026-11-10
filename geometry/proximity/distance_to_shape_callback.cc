@@ -64,6 +64,16 @@ void DistancePairGeometry<T>::SphereShapeDistance(const fcl::Sphered& sphere_A,
   result_->p_ACa = -sphere_A.radius * (R_AW * shape_B_to_point_Ao.grad_W);
 }
 
+namespace {
+
+class CountingDistance : public coal::ComputeDistance {
+ public:
+  using coal::ComputeDistance::ComputeDistance;
+  size_t gjk_iterations() const { return solver.gjk.getNumIterations(); }
+};
+
+}  // namespace
+
 template <>
 void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
                                   const math::RigidTransformd& X_WA,
@@ -76,6 +86,7 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
   coal_request.gjk_variant = coal.gjk_variant;
   coal_request.gjk_convergence_criterion = coal.gjk_convergence_criterion;
   coal_request.gjk_tolerance = request.distance_tolerance;
+  coal_request.gjk_max_iterations = coal.gjk_max_iterations;
   coal_request.epa_tolerance = request.distance_tolerance;
   double min_distance{};
   Eigen::Vector3d p_WCa, p_WCb;
@@ -84,13 +95,17 @@ void CalcDistanceFallback<double>(const fcl::CollisionObjectd& a,
     const coal::Transform3s tf_A(X_WA.rotation().matrix(), X_WA.translation());
     const coal::Transform3s tf_B(X_WB.rotation().matrix(), X_WB.translation());
     coal::DistanceResult coal_result;
-    coal::distance(coal_A, tf_A, coal_B, tf_B, coal_request, coal_result);
+    const CountingDistance compute(coal_A, coal_B);
+    compute(tf_A, tf_B, coal_request, coal_result);
+    LastGjkIterations() = compute.gjk_iterations();
     min_distance = coal_result.min_distance;
     p_WCa = coal_result.nearest_points[0];
     p_WCb = coal_result.nearest_points[1];
   } else {
     fcl::DistanceResultd result;
+    fcl::detail::libccd_extension::gjk_iteration_count() = 0;
     fcl::distance(&a, &b, request, result);
+    LastGjkIterations() = fcl::detail::libccd_extension::gjk_iteration_count();
     min_distance = result.min_distance;
     p_WCa = result.nearest_points[0];
     p_WCb = result.nearest_points[1];
