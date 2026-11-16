@@ -52,7 +52,7 @@ Median reduction in solve time relative to FCL:
 
 ![IK time per solve](oat_lab/figures/ik_solve_time_boxplots.png)
 
-Polyak acceleration shows the highest reduction agains FCL on isolated narrowphase queries, while in the full IK solve default GJK and Polyak perform about equally. \
+Polyak acceleration shows the highest reduction agains FCL on isolated narrowphase queries, while in the full IK solve default GJK and Polyak perform about equally. 
 
 **Ongoing research:** Investigating when Polyak and Nesterov accelerations perform better than plain GJK, with a focus on strongly convex shapes.
 
